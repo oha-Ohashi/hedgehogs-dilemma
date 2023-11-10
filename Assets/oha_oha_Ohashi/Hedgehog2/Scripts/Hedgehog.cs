@@ -16,8 +16,8 @@ public class Hedgehog : UdonSharpBehaviour
 
     //////////////////  インディケーターの登録  ////////////////////////////
     public Transform ParentOfIndicator;
-    private GameObject[] _indicatorObjs = new GameObject[100];
-    private Indicator[] _indicatorBehaviours = new Indicator[100];
+    private GameObject[] _indicatorObjs = new GameObject[200];
+    private Indicator[] _indicatorBehaviours = new Indicator[200];
 
 
     ///////////////////////////////////////////////////////////////////////////////////   デバグ    //////////////////////////////
@@ -28,7 +28,7 @@ public class Hedgehog : UdonSharpBehaviour
     ///////////////////////   ローカルの変数   //////////////////////
     ///////////////////////   ローカルの変数   //////////////////////
     ///////////////////////   ローカルの変数   //////////////////////
-    public float MoveFireRateLimit = 0.2f;
+    public float MoveFireRateLimit;
     public bool MoveAllowed = true;
     private int _realBoardSize = 5;
     private int[] _historyOfMoves = new int[103];
@@ -136,11 +136,11 @@ public class Hedgehog : UdonSharpBehaviour
             TerminateGame();
             // ゲーム開始
             InitializeGame();
+
             // 最初の合法手提示
-            int[] legalMoveGridIds = Rule.GetLegalMoves(_localCurrentBoard);
-            ShowLegalMoves(legalMoveGridIds);
+            LegalActions(_localCurrentBoard);
         } else if ( GamePhase == 2 ) {
-                
+            // なにもしないよ
         }
     }
 
@@ -203,7 +203,7 @@ public class Hedgehog : UdonSharpBehaviour
         RequestSerialization();
     }
 
-    // デコードしてProcess君に投げる
+    // デコードして (uint[27] なら) Process君に投げる
     private void OneMoveHappysetChanged()
     {
         if ( DebugMode ) Debug.Log("ハッピーセット届きました。デコード前です。");
@@ -253,10 +253,10 @@ public class Hedgehog : UdonSharpBehaviour
         }
     }
 
-
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////  分解された着手ハッピーセット、          ////////////////
     ////////////////////  つまりターン&グリッドとボードが来たとき  ////////////////
+    ////////////////////  実際の処理はしない、場合分け担当大臣     ////////////////
     ////////////////////////////////////////////////////////////////////////////
     private void ProcessSeparatedOneMoveHappyset(uint argNewNTurnAndGridId, byte[] argNewBoard)
     {
@@ -267,53 +267,162 @@ public class Hedgehog : UdonSharpBehaviour
         if ( DebugMode ) Debug.Log("与えられたnTurnは " + givenNTurn.ToString());
         if ( DebugMode ) Debug.Log("ローカルのターンは" + _localCurrentBoard[1].ToString());
 
-        // 手数の差がちゃんと 1 になってる場合
-        // またはローカルの手数が0xFAで かつ ハッピーセットから nTurn = 0 が来た場合
-        if ( (givenNTurn == _localCurrentBoard[1] + 1) ||
-             ((givenNTurn == 0) && (_localCurrentBoard[1] == 0xFA)) )
+        // またはローカルの手数が0xF9で かつ ハッピーセットから nTurn = 0 が来た場合
+        // 
+        if (_localCurrentBoard[1] == 0xF9)
         {
-            SycnBoardFromNewNTurnAndGridId(argNewNTurnAndGridId);
+            if ( givenNTurn == 0 )
+            {
+                // アニメーションつき1ターン同期
+                SycnBoardFromNewNTurnAndGridId(argNewNTurnAndGridId);
+            }
+            else 
+            {
+                // 瞬間同期
+                SycnBoardFromNewBoard(argNewBoard);
+            }
         }
-        // 自分が着手者で、すでにハリネズミを動かしちゃった場合
-        else if ( givenNTurn > _localCurrentBoard[1] )
-        {
-            if ( DebugMode ) Debug.Log("ハッピーセットのターン > ローカルターン");
-
-            // 盤を同期するよ
-        }
-        else if ( givenNTurn < _localCurrentBoard[1])
-        {
-            if ( DebugMode ) Debug.Log("ハッピーセットのターン < ローカルターン");
-            // 何もしないよ
-        }
-        else if ( givenNTurn == _localCurrentBoard[1] )
-        {
-            if ( DebugMode ) Debug.Log("ハッピーセットのターン == ローカルターン");
-            // 何もしないよ
-            // 自分が着手したってことだよ
-        }
+        // もうJOINしたてじゃないのよ
         else
         {
-            //// 盤が変わる場合その2: ボードを強制同期  ////
-            //SycnBoardFromNewBoard(argNewBoard);
+            // グローバルの方が進んでる場合
+            if ( givenNTurn > _localCurrentBoard[1] )
+            {
+                if ( DebugMode ) Debug.Log("ハッピーセットのターン > ローカルターン");
+
+                // 手数の差がちゃんと 1 になってる場合
+                if ( (givenNTurn == _localCurrentBoard[1] + 1) )
+                {
+                    if ( DebugMode ) Debug.Log("差は 1 です");
+                    // アニメーションつき1ターン同期
+                    // 最高です。ずっとこれやりたい
+                    SycnBoardFromNewNTurnAndGridId(argNewNTurnAndGridId);
+                }
+                else
+                {
+                    if ( DebugMode ) Debug.Log("差は 2, またはそれ以上 です");
+                    // 2ターン以上遅れてます。自分を恥じましょう
+                    // アニメーションなし強制同期
+                    SycnBoardFromNewBoard(argNewBoard);
+                }
+
+            }
+            // グローバルとローカル、ターン数が一致
+            // 自分が着手者で、すでにハリネズミを動かしちゃった場合が該当する
+            else if ( givenNTurn == _localCurrentBoard[1])
+            {
+                if ( DebugMode ) Debug.Log("ハッピーセットのターン == ローカルターン");
+                // 何もしないよ
+                // 自分が着手したってことだよ
+            }
+            // なぜかローカルの方が進んでる(そんなことある？)
+            else if ( givenNTurn < _localCurrentBoard[1] )
+            {
+                if ( DebugMode ) Debug.Log("ハッピーセットのターン < ローカルターン");
+
+                // よくわからんけど怖いので同期します
+                SycnBoardFromNewBoard(argNewBoard);
+            }
+            // ありえない
+            else
+            {
+                // 入るわけないゾーン
+                if ( DebugMode ) Debug.Log("いやああああああ  入ってこないでえええええ");
+
+                // アニメーションなし強制同期
+                SycnBoardFromNewBoard(argNewBoard);
+            }
         }
     }
 
+    //////////////////////////////////////////////////////////
+    ////////////////////  PlayerIdBlue  //////////////////////
+    //////////////////////////////////////////////////////////
+    [UdonSynced, FieldChangeCallback(nameof(PlayerIdBlue))] 
+    private int intPlayerIdBlue = -1;
+    public int PlayerIdBlue
+    {
+        set { intPlayerIdBlue = value; PlayerOccupationChanged(); }
+        get => intPlayerIdBlue;
+    }
+
+    public void SetPlayerIdBlue()
+    {
+        // 同期変数を更新するためにオブジェクトオーナー取得
+        if (!Networking.LocalPlayer.IsOwner(this.gameObject)) {
+            Networking.SetOwner(Networking.LocalPlayer, this.gameObject);
+        }
+
+        // 同期変数の更新。この場合、更新するのはHogeの方
+        PlayerIdBlue = Networking.LocalPlayer.playerId;
+
+        // 同期を要求
+        RequestSerialization();
+    }
+    //////////////////////////////////////////////////////////
+    //////////////////  PlayerIdOrange  //////////////////////
+    //////////////////////////////////////////////////////////
+    [UdonSynced, FieldChangeCallback(nameof(PlayerIdOrange))] 
+    private int intPlayerIdOrange = -1;
+    public int PlayerIdOrange
+    {
+        set { intPlayerIdOrange = value; PlayerOccupationChanged(); }
+        get => intPlayerIdOrange;
+    }
+
+    public void SetPlayerIdOrange()
+    {
+        // 同期変数を更新するためにオブジェクトオーナー取得
+        if (!Networking.LocalPlayer.IsOwner(this.gameObject)) {
+            Networking.SetOwner(Networking.LocalPlayer, this.gameObject);
+        }
+
+        // 同期変数の更新。この場合、更新するのはHogeの方
+        PlayerIdOrange = Networking.LocalPlayer.playerId;
+
+        // 同期を要求
+        RequestSerialization();
+    }
+
+    /////////////////////   プレイ中ですか  //////////////////////
+    public bool[] WhoAmI()
+    {
+        int playerId = Networking.LocalPlayer.playerId;
+        return new bool[2] {
+            playerId == PlayerIdBlue,
+            playerId == PlayerIdOrange
+        };
+    }
+    /////////////////////   ボタン状態を変更  //////////////////////
+    public void PlayerOccupationChanged()
+    {
+        int myId = Networking.LocalPlayer.playerId;
+        Panel.SwitchOccupyingPlayersIconsToShow(
+            PlayerIdBlue   != myId,                   // 自分が当事者でない時、ボタンを表示
+            PlayerIdOrange != myId                   // 自分が当事者でない時、ボタンを表示
+        );
+
+        // プレイ中の着手者入れ替わり
+        if (GamePhase == 1)
+        {
+            // 次の合法手提示
+            LegalActions(_localCurrentBoard);
+        }
+    }
+
+
     ///////////////////////   同期変数   //////////////////////
     ///////////////////////   同期変数   //////////////////////
     ///////////////////////   同期変数   //////////////////////
     //////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////
 
-    // Start()でやっていいこと:
-        // 同期変数に基づく処理
-        // オブジェクトの登録
-    // 遅れてJOINニキによるフォローアップ
+    // オブジェクトの登録
     void Start()
     {
         SetActiveOneOfAll(ref Boards, BoardSize);
-        
-        for ( int i = 0; i < 100; i++ ) {
+
+        for ( int i = 0; i < 200; i++ ) {
             // インディケーターを登録
             _indicatorObjs[i] = ParentOfIndicator.GetChild(i).gameObject;
             _indicatorObjs[i].SetActive(false);
@@ -322,9 +431,6 @@ public class Hedgehog : UdonSharpBehaviour
             _cheapPiecesObjs[i] = ParentOfCheapPieces.GetChild(i).gameObject;                       //////////////////////////////////////////////////////////////デバグ
             _cheapPiecesObjs[i].SetActive(false);
             _cheapPiecesBehaviours[i] = _cheapPiecesObjs[i].GetComponent<Indicator>();
-            _cheapPiecesObjs[100+i] = ParentOfCheapPieces.GetChild(100+i).gameObject;                       //////////////////////////////////////////////////////////////デバグ
-            _cheapPiecesObjs[100+i].SetActive(false);
-            _cheapPiecesBehaviours[100+i] = _cheapPiecesObjs[100+i].GetComponent<Indicator>();
         }
     }
 
@@ -345,27 +451,33 @@ public class Hedgehog : UdonSharpBehaviour
 
     // ゲーム開始前のお約束
     // ボードサイズに依存する処理ありがち
+    // ローカルのものしかいじらないでね
     private void InitializeGame()
     {
         // 子分スクリプト初期化
         MoveController.Reset(BoardSize, ActualNumbersOfBoardSize[BoardSize]);
     }
 
+    // ローカルのものしかいじらないでね
     private void TerminateGame() 
     {
         // データ全消し / 初期化
         _localCurrentBoard = Rule.GetInitialBoard(_realBoardSize);
 
         // インディケーター全消し
-        ShowLegalMoves(new int[1] {0});
+        ShowLegalMoves(new int[1] {0}, true);
 
         // コマ全消し
         for ( int i = 0; i < 100; i++ ) {
             _cheapPiecesObjs[i].SetActive(false);
-            _cheapPiecesObjs[100 + i].SetActive(false);
             _indicatorBehaviours[i].MoveToSquare( i, _realBoardSize );
             _cheapPiecesBehaviours[i].MoveToSquare( i, _realBoardSize );
-            _cheapPiecesBehaviours[100 + i].MoveToSquare( i, _realBoardSize );
+        }
+        for ( int i = 0; i < 100; i++ ) {
+            int biggerI = i + 100;
+            _cheapPiecesObjs[biggerI].SetActive(false);
+            _indicatorBehaviours[biggerI].MoveToSquare( i, _realBoardSize );
+            _cheapPiecesBehaviours[biggerI].MoveToSquare( i, _realBoardSize );
         }
     }
 
@@ -410,6 +522,10 @@ public class Hedgehog : UdonSharpBehaviour
         int[] animPackage = GenerateAnimPackage(nTurn, argGridId, ref _localCurrentBoard);
         ExecuteAnimPackage(animPackage);
 
+        // チープピースを表示
+        ShowCheapPieces(_localCurrentBoard);
+
+        /////////////////////////  同期送信始まり  ////////////////////////
         if ( DebugMode ) Debug.Log("---------  インディケータからの同期、やります  ---------");
         uint[] happyset = AssembleOneMoveHappyset(nTurnAndGridIdPlusOne, _localCurrentBoard);
         
@@ -421,10 +537,8 @@ public class Hedgehog : UdonSharpBehaviour
         SendCustomEventDelayedSeconds(nameof(JustSetTmpOneMoveHappyset), MoveFireRateLimit * 0.8f);
 
         // 次の合法手提示
-        int[] legalMoveGridIds = Rule.GetLegalMoves(_localCurrentBoard);
-        ShowLegalMoves(legalMoveGridIds);
+        LegalActions(_localCurrentBoard);
     }
-
     ////////////////////////////////////////////////////////////////////////////
     ///////////////  盤が変わる場合その1: ターングリッドを処理  ///////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -440,9 +554,11 @@ public class Hedgehog : UdonSharpBehaviour
         int[] animPackage = GenerateAnimPackage(nTurn, gridId, ref _localCurrentBoard);
         ExecuteAnimPackage(animPackage);
 
-        // 最初の合法手提示
-        int[] legalMoveGridIds = Rule.GetLegalMoves(_localCurrentBoard);
-        ShowLegalMoves(legalMoveGridIds);
+        // チープピースを表示
+        ShowCheapPieces(_localCurrentBoard);
+
+        // 次の合法手提示
+        LegalActions(_localCurrentBoard);
     }
 
     ///////////////////////   盤を動かす AnimPackage を実行   ///////////////////////
@@ -462,13 +578,21 @@ public class Hedgehog : UdonSharpBehaviour
     private void SycnBoardFromNewBoard(byte[] argBoard)
     {
         if ( DebugMode ) Debug.Log("--------- 盤を変えます。ボード頂きましたので。 ---------");
-        if ( DebugMode ) Debug.Log("すまん未実装です");
+        if ( DebugMode ) Debug.Log("一瞬でボードが最新になります");
+
+        // 強制同期
+        _localCurrentBoard = argBoard;
+
+        // チープピースを表示
+        ShowCheapPieces(argBoard);
+
+        // 次の合法手提示
+        LegalActions(_localCurrentBoard);
     }
 
     ////////////////////////////////////////////////////////////////////////
     ///////////////////  アニメーション｢指示セット｣を生成   ///////////////////
     ////////////////////////////////////////////////////////////////////////
-    //初手以外
     public int[] GenerateAnimPackage(int nTurn, int spawningGridId, ref byte[] refBoard)
     {
         if ( DebugMode ) Debug.Log("--------- ここは GenerateAnimPackage ---------");
@@ -576,8 +700,8 @@ public class Hedgehog : UdonSharpBehaviour
             //////////////////////
             //// 直進フェーズ /////        // 進むか否かしか考えないよ
             //////////////////////
-            int[] wannaGoGridIds = new int[4];
-            int[] gonnaGoGridIds = new int[4];
+            int[] wannaGoGridIds = new int[4] {-1, -1, -1, -1};
+            int[] gonnaGoGridIds = new int[4] {-1, -1, -1, -1};
             for (int i = 0; i < 4; i++) {
                 // -1 のみなさまはとなりネズミ問い合わせサービスをご利用いただけません。
                 // 今が存在するとなりネズミのターン(1/4)ならば          
@@ -709,7 +833,6 @@ public class Hedgehog : UdonSharpBehaviour
                 }
             }
         }
-
         return resAnimPackage;
     }
 
@@ -764,7 +887,7 @@ public class Hedgehog : UdonSharpBehaviour
        return rotCodesAlteredByDeltaRot[deltaRot][asisRotCode];
     }
 
-    // Genの中で逐次animをboardに適用  board は ref 型
+    // Genの中。逐次animをboardに適用  board は ref 型
     private void ApplySingleAnimToBoard( int argSingleAnim, ref byte[] refBoard )
     {
         // Warnig: board[3] から追加だよ
@@ -844,8 +967,27 @@ public class Hedgehog : UdonSharpBehaviour
             msg += "\nエモート変更部門です。 tobeEmote: " + Rule.TrimBinary(tobeEmote, 8);
             if ( DebugMode ) Debug.Log(msg + msgDetail);
         }
+    }
 
-        ShowCheapPieces(refBoard);
+    // 合法手カウント、場合によっては終了
+    private void LegalActions(byte[] argLocalCurrentBoard)
+    {
+        if ( DebugMode ) Debug.Log("法 の 番 人");
+
+        // 次の合法手提示
+        int[] legalMoveGridIds = Rule.GetLegalMoves(argLocalCurrentBoard);
+
+        bool boardHasBlueTurn = (argLocalCurrentBoard[1] % 2 == 0);
+
+        ShowLegalMoves(legalMoveGridIds, boardHasBlueTurn);
+
+        if ( legalMoveGridIds[0] <= 0 )
+        {
+            if ( DebugMode ) Debug.Log("合法手が 0 個以下だったので終了します");
+            bool blueWins = boardHasBlueTurn;
+            Panel.SwitchWinnersmarks(blueWins);
+            InclimentGamePhase();
+        }
     }
 
     //////////////////////   遅れて実行チーム   ////////////////////
@@ -872,21 +1014,36 @@ public class Hedgehog : UdonSharpBehaviour
     //////////////////////////////////////////////////////////////////
 
     // 合法手を表示
-    public void ShowLegalMoves(int[] legalMoveGridIds)
+    public void ShowLegalMoves(int[] legalMoveGridIds, bool argBoardHasBlueTurn)
     {
         if ( DebugMode ) Debug.Log("--------- ここはShowLegalMoves() ---------");
         // インディケーター全消し
-        for ( int i = 0; i < 100; i++ )
+        for ( int i = 0; i < 200; i++ )
         {
+            _indicatorBehaviours[i].GetComponent<Collider>().enabled = false;
             _indicatorObjs[i].SetActive(false);
         }
         
         if ( legalMoveGridIds[0] > 0 ) {
-            if ( DebugMode ) Debug.Log("ピンク箱( " + legalMoveGridIds[0].ToString() + " 個)出したいねぇ");
+            if ( DebugMode ) Debug.Log("インディケータ箱( " + legalMoveGridIds[0].ToString() + " 個)出したいねぇ");
 
             for (int i = 0; i < legalMoveGridIds[0]; i++){ // 有効範囲全探索
+                int index = legalMoveGridIds[1+i];
+                // 今のボードが青ターンなら次に表示すべきはオレンジインディケータ
+                if ( argBoardHasBlueTurn ) {
+                    index += 100;
+                }
+
                 // インディケーター出現
-                _indicatorObjs[legalMoveGridIds[i+1]].SetActive(true);
+                _indicatorObjs[index].SetActive(true);
+                // 今のボードが青ターンならオレンジのプレイヤーが着手できる
+                if ( 
+                     (argBoardHasBlueTurn && WhoAmI()[1]) ||    // 青着手後 かつ 私はオレンジ
+                    (!argBoardHasBlueTurn && WhoAmI()[0])       // オレンジ着手後 かつ 私は青
+                )
+                {
+                    _indicatorBehaviours[index].GetComponent<Collider>().enabled = true;
+                }
             }
         } else {
             if ( DebugMode ) Debug.Log("全消ししたかっただけです");

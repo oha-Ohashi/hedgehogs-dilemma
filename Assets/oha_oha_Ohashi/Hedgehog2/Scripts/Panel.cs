@@ -11,6 +11,7 @@ public class Panel : UdonSharpBehaviour
      
     // Pre-Game
     public GameObject[] BoardSizeIcons;
+    public GameObject[] PlayerOccupationIcons;
     // In-Game
     // Post-Game
     public GameObject[] WinnersMarks;
@@ -35,6 +36,17 @@ public class Panel : UdonSharpBehaviour
     
     ////////////// button用  メソッドたち  ////////////////////
     // Pre-Game
+    public void JoinBlueButtonPressed()
+    {
+        Debug.Log("あおあお");
+        Master.SetPlayerIdBlue();           // 俺が青ダ！
+    }
+    public void JoinOrangeButtonPressed()
+    {
+        Debug.Log("だいだい");
+        Master.SetPlayerIdOrange();           // 俺がオレンジダ！
+    }
+
     public void SwitchBoardSizeTo5(){SwitchBoardSize(0);}
     public void SwitchBoardSizeTo6(){SwitchBoardSize(1);}
     public void SwitchBoardSizeTo7(){SwitchBoardSize(2);}
@@ -89,9 +101,24 @@ public class Panel : UdonSharpBehaviour
         Master.SetActiveOneOfAll(ref BoardSizeIcons, Master.BoardSize);
     }
 
-    // 今使ってないね
+    // 3パネルの切り替え
     public void SwitchWhichPanelToShow()
     {
         Master.SetActiveOneOfAll(ref Panels, Master.GamePhase);
     }
+
+    // Join ボタン切り替え
+    public void SwitchOccupyingPlayersIconsToShow(bool flagBlue, bool flagOrange)
+    {
+        PlayerOccupationIcons[0].SetActive(flagBlue);
+        PlayerOccupationIcons[1].SetActive(flagBlue);
+        PlayerOccupationIcons[2].SetActive(flagOrange);
+        PlayerOccupationIcons[3].SetActive(flagOrange);
+    }
+
+    public void SwitchWinnersmarks(bool argBlueWins)
+    {
+        WinnersMarks[0].SetActive(argBlueWins);
+        WinnersMarks[1].SetActive(!argBlueWins);
+    } 
 }
