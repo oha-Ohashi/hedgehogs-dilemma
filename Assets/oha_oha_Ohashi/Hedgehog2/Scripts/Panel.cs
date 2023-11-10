@@ -57,19 +57,22 @@ public class Panel : UdonSharpBehaviour
     public void BackButtonPressed()
     {
         Debug.Log("もどるうううう");
+        Master.SetOneMoveHappyset(new uint[3] {100, 200, 300});
     }
 
     public void ForwardButtonPressed()
     {
         Debug.Log("すすむうううう");
         // 次のゲームフェーズGamePhase
-        Master.InclimentGamePhase();
+        //Master.InclimentGamePhase();
+        Master.SetOneMoveHappyset(new uint[2] {90, 80});
     }
 
     public void ResetButtonPressed()
     {
         Debug.Log("Reセットオオオイ");
         Master.SetGamePhase(0);
+        Master.SetOneMoveHappyset(new uint[1] {0xFA});
     }
 
     // Post-Game

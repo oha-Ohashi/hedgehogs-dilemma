@@ -19,9 +19,15 @@ public class Indicator : UdonSharpBehaviour
 
     public override void Interact()
     {
-        Debug.Log("Grid interacted: " + _gridId.ToString());
-        Master.IndicatorInteracted(_gridId);
-
+        if ( Master.MoveAllowed )
+        {
+            Debug.Log("Grid interacted: " + _gridId.ToString());
+            Master.IndicatorInteracted(_gridId);
+        } 
+        else
+        {
+            Debug.Log("着手は " + Master.MoveFireRateLimit.ToString() + " 秒に1回だけ！！");
+        }
     }
 
     public void MoveToSquare(int gridId, int realBoardSize)

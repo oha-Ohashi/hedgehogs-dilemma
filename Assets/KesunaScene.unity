@@ -21772,6 +21772,8 @@ MonoBehaviour:
   ActualNumbersOfBoardSize: 05000000060000000700000008000000
   ParentOfIndicator: {fileID: 48832003}
   ParentOfCheapPieces: {fileID: 1534520094}
+  MoveFireRateLimit: 0.2
+  MoveAllowed: 1
 --- !u!114 &653908973
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -71061,16 +71063,15 @@ MonoBehaviour:
   useAssignedLayers: 0
   DynamicPrefabs: []
   DynamicMaterials:
-  - {fileID: 670224309865224971, guid: be966b5de9d34d943b58a26dfbd69cde, type: 3}
   - {fileID: 2100000, guid: 223d03e160cbcbb4380b1c99dee5aae1, type: 2}
-  - {fileID: 2100000, guid: 1c987494452b85f4ab4cac3322415907, type: 2}
   - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   - {fileID: 2100000, guid: 210611b7e3153b34391ef3fb8c61e1ca, type: 2}
-  - {fileID: 2100000, guid: 0e2b5f646f71d6f498f38ecf3aed8afa, type: 2}
+  - {fileID: 670224309865224971, guid: be966b5de9d34d943b58a26dfbd69cde, type: 3}
   - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
   - {fileID: 2100000, guid: dd64e1b47f9b36a42bf53eba5d395c6d, type: 2}
   - {fileID: 2100000, guid: 8710dffd8e07f67488f30aa364dc1f3f, type: 2}
   - {fileID: 2100000, guid: 195a534d4a92f6b4d88cb1e38729b800, type: 2}
+  - {fileID: 2100000, guid: 1c987494452b85f4ab4cac3322415907, type: 2}
   - {fileID: 2100000, guid: c815f7613a04b724089c206857e57c6a, type: 2}
   - {fileID: 2100000, guid: fd20e45036ef323459e8286e9c23c02c, type: 2}
   LightMapsNear: []

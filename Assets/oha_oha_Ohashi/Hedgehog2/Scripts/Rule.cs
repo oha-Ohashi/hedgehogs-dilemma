@@ -17,7 +17,7 @@ public class Rule : UdonSharpBehaviour
     {
         byte[] resBoard = new byte[103];
         resBoard[0] = (byte)actualBoardSize;          // ボードサイズ
-        resBoard[1] = 0xFF;                           // nPlayedTurns 初期は無効な値
+        resBoard[1] = 0xFA;                           // nPlayedTurns 初期は無効な値
         resBoard[2] = 0;                              // 廃墟
         for ( int i = 0; i < 100; i++ ) {
             resBoard[3 + i] = 0b0100_0000;             // ゲームで使われないマスにも None がいる
@@ -33,8 +33,8 @@ public class Rule : UdonSharpBehaviour
         resGridIds[0] = 0;                                  // resGridIds[0] は以降の要素数
 
         // ターン数が偶数なら青のターンであって、黄色の存在が知りたいよね
-        //if ( DebugMode ) Debug.Log("board[1] " + board[1].ToString() + " -- board[1]==0xFF " + (board[1]==0xFF));
-        int nNextTurn = (board[1] == 0xFF) ? 0 : board[1] + 1;      // 今から打ちたいNターンだね(一時int)
+        //if ( DebugMode ) Debug.Log("board[1] " + board[1].ToString() + " -- board[1]==0xFA " + (board[1]==FA));
+        int nNextTurn = (board[1] == 0xFA) ? 0 : board[1] + 1;      // 今から打ちたいNターンだね(一時int)
         if ( DebugMode ) Debug.Log("nNextTurnは: " + nNextTurn.ToString());
 
         // 初回分岐。 初回は最も外側の辺以外置ける
