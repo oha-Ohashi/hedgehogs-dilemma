@@ -134,8 +134,6 @@ public class Hedgehog : UdonSharpBehaviour
         } else if (GamePhase == 1) {                            //ゲーム開始のゴング
             // 全消し
             TerminateGame();
-            // ゲーム開始
-            InitializeGame();
 
             // 最初の合法手提示
             LegalActions(_localCurrentBoard);
@@ -437,25 +435,6 @@ public class Hedgehog : UdonSharpBehaviour
     ////////////////   キーボボ入力  ////////////////////
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.G)) {
-
-        }
-        if (Input.GetKeyDown(KeyCode.M)) {
-
-        }
-        if (Input.GetKeyDown(KeyCode.D)) {
-        }
-        if (Input.GetKeyDown(KeyCode.F)) {
-        }
-    }
-
-    // ゲーム開始前のお約束
-    // ボードサイズに依存する処理ありがち
-    // ローカルのものしかいじらないでね
-    private void InitializeGame()
-    {
-        // 子分スクリプト初期化
-        MoveController.Reset(BoardSize, ActualNumbersOfBoardSize[BoardSize]);
     }
 
     // ローカルのものしかいじらないでね

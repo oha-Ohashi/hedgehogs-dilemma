@@ -6,11 +6,13 @@ using VRC.Udon;
 
 public class Move : UdonSharpBehaviour
 {
-    public Transform ParentOFPieces;
-    private GameObject[] _pieceObjs = new GameObject[10];
-    private Piece[] _pieceBehaviours = new Piece[10];
+    public Transform HousingComplexTransform;
+    public GameObject AdamPieceObj;
+    public Piece AdamPieceBehaviour;
+    public GameObject AdamClockObj;
+    public Clock AdamClockBehaviour;
 
-    private int _localNTurn;
+    private float _millis = 0f;
     private int _boardSizeCode;
     private int _realBoardSize;
     private int _nSquaresOnBoard;
@@ -19,20 +21,14 @@ public class Move : UdonSharpBehaviour
 
     void Start()
     {
-        for ( int i = 0; i < 10; i++ ) {
-            // ハリネズミをを登録
-            _pieceObjs[i] = ParentOFPieces.GetChild(i).gameObject;
-            _pieceObjs[i].SetActive(false);
-            _pieceBehaviours[i] = _pieceObjs[i].GetComponent<Piece>();
-        }
-        _pieceObjs[0].SetActive(true);
+        AdamPieceBehaviour.SetMaterialMode("transparent");
+
+        Demo();
     }
 
     // マスターから叩く想定
-    public int Reset(int argBoardSizeCode, int argRealBoardSize)
+    public int InitializeMove(int argRealBoardSize)
     {
-        _localNTurn = 0;
-        _boardSizeCode = argBoardSizeCode;
         _realBoardSize = argRealBoardSize;
         _nSquaresOnBoard = _realBoardSize * _realBoardSize;
         _allPositions = new Vector3[_nSquaresOnBoard];
@@ -49,13 +45,6 @@ public class Move : UdonSharpBehaviour
                 minZ + col * _gridWidth
             );
         }
-
-        _pieceObjs[3].SetActive(true);
-        _pieceObjs[2].SetActive(true);
-        _pieceObjs[5].SetActive(true);
-        _pieceObjs[3].transform.localPosition = _allPositions[24];
-        _pieceObjs[2].transform.localPosition = _allPositions[0];
-        _pieceObjs[5].transform.localPosition = _allPositions[12];
         return 0;
     }
 
@@ -92,44 +81,61 @@ public class Move : UdonSharpBehaviour
         return 0;
     }
 
-    // boardをもらってアニメーションなしの強制同期
-    public int ForcedSyncOfBoard( byte argBoard )
-    {
-
-        return 0;
-    }
-
-    ////////////////   キーボボ入力  ////////////////////
     void Update()
     {
+        // 時刻を加算
+        _millis += Time.deltaTime;
+
+        // キーボボ入力
         if (Input.GetKeyDown(KeyCode.Space)) {
-            Debug.Log("SSSSPPPPPAAAACE");
-            Reset(2, 7);
+            Debug.Log("すぺーーーす");
+            InitializeMove(5);
         }
         if (Input.GetKeyDown(KeyCode.Return)) {
-            Debug.Log("EEEEENTURRRRREEEE");
-            Reset(2, 7);
-            Demo(0);
+            Debug.Log("えんたーーーー");
         }
         if (Input.GetKeyDown(KeyCode.A)) {
             Debug.Log("A");
-            _pieceBehaviours[0].GetComponent<Animator>().SetTrigger("slide up");
+            //_pieceBehaviours[0].GetComponent<Animator>().SetTrigger("slide up");
         }
         if (Input.GetKeyDown(KeyCode.E)) {
             Debug.Log("E");
-            _pieceBehaviours[0].GetComponent<Animator>().SetTrigger("slide right");
         }
         if (Input.GetKeyDown(KeyCode.I)) {
             Debug.Log("I");
-            // _pieceBehaviours[0].GetComponent<Animator>().SetTrigger("deltaRot", 1);
-            _pieceBehaviours[0].GetComponent<Animator>().SetTrigger("slide down");
         }
         if (Input.GetKeyDown(KeyCode.O)) {
             Debug.Log("O");
-            _pieceBehaviours[0].GetComponent<Animator>().SetTrigger("slide left");
+        }
+        if (Input.GetKeyDown(KeyCode.G)) {
+            Debug.Log("S");
         }
         if (Input.GetKeyDown(KeyCode.G)) {
             Debug.Log("G");
+
+            for (int i = 0; i < 2; i++) {
+                GameObject newPieceObj = Instantiate(AdamPieceObj, HousingComplexTransform);
+                string color = i % 2 == 0 ? "blue": "orange";
+                newPieceObj.GetComponent<Piece>().Initialize(
+                    color,
+                    _realBoardSize,
+                    _allPositions,
+                    0,                       // 0, 3でテスト
+                    3
+                );
+                GameObject newClock = Instantiate(AdamClockObj, newPieceObj.transform);
+                float[] dur = new float[10];
+                for (int iDur = 0; iDur < 10; iDur++) {
+                    dur[iDur] = 0.5f;
+                }
+                newClock.GetComponent<Clock>().Initialize(
+                    "namaeeee",
+                    new int[13] {0, 5, 5, 6, 6, 11, 11, 16, 16, 15, 15, 10, 10},
+                    new int[13] {2, 2, 1, 1, 2, 2,  2,  2,  3,  3,  0,  0,  0 },
+                    new float[13] {0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f, 0.3f},
+                    true
+                );
+            }
         }
         if (Input.GetKeyDown(KeyCode.M)) {
             Debug.Log("M");
@@ -142,11 +148,9 @@ public class Move : UdonSharpBehaviour
         }
     }
 
-    /////////////////////   DEMO   //////////////////////
-    private void Demo(int argMode) 
+    /////////////////////   Demo   //////////////////////
+    private void Demo() 
     {
-        if ( argMode == 0 ) {
-            Debug.Log("DEEEEEEMO");
-        }
+
     }
 }
