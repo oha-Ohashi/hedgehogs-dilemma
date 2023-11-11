@@ -79,6 +79,8 @@ public class Hedgehog : UdonSharpBehaviour
         _realBoardSize = ActualNumbersOfBoardSize[BoardSize];
         SetActiveOneOfAll(ref Boards, BoardSize);               // ボードオブジェクト切り替え
         Panel.SwitchWhichBoardSizeIconToShow();
+
+        MoveController.InitializeMove(_realBoardSize);
     }
 
     //////////////////////////////////////////////////////////
@@ -540,17 +542,6 @@ public class Hedgehog : UdonSharpBehaviour
         LegalActions(_localCurrentBoard);
     }
 
-    ///////////////////////   盤を動かす AnimPackage を実行   ///////////////////////
-    private void ExecuteAnimPackage(int[] argAnimPackage)
-    {
-        MoveController.AcceptBrandNewAnimPackage(argAnimPackage);
-
-        string msg = "MoveController で1ターン分動かすニキが終わりましたわ。";
-        msg += "\n_localCurrentBoard[0]: " + _localCurrentBoard[0].ToString();
-        msg += "\n_localCurrentBoard[1]: " + _localCurrentBoard[1].ToString();
-        if ( DebugMode ) Debug.Log(msg);
-    }
-
     ////////////////////////////////////////////////////////////////////////////
     //////////////// 盤が変わる場合その2: ボードを強制同期  ///////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -598,9 +589,9 @@ public class Hedgehog : UdonSharpBehaviour
                                 0 : GetRotCodeWhenSpawned(spawningGridId, refBoard, isBlueTurn ? 0b001 : 0b010);
 
         // アニメーション生成してrefBoard操作( スポーン )
-        int orderType = isBlueTurn ? 0b0000 : 0b0011;
+        int diffOrderValue = isBlueTurn ? 0b0000 : 0b0100;
         int letsSpawnSingleAnim = (spawningGridId << 8) +
-                                    (orderType << 4) + (newPieceRotCode);
+                                    (0b0000 << 4) + diffOrderValue + newPieceRotCode;
         resAnimPackage[++resAnimPackage[0]] = letsSpawnSingleAnim;
         ApplySingleAnimToBoard(letsSpawnSingleAnim, ref refBoard);
 
@@ -813,6 +804,17 @@ public class Hedgehog : UdonSharpBehaviour
             }
         }
         return resAnimPackage;
+    }
+
+    ///////////////////////   盤を動かす AnimPackage を実行   ///////////////////////
+    private void ExecuteAnimPackage(int[] argAnimPackage)
+    {
+        MoveController.AcceptDecodeProcessAnimPackage(argAnimPackage);
+
+        string msg = "MoveController で1ターン分動かすニキが終わりましたわ。";
+        msg += "\n_localCurrentBoard[0]: " + _localCurrentBoard[0].ToString();
+        msg += "\n_localCurrentBoard[1]: " + _localCurrentBoard[1].ToString();
+        if ( DebugMode ) Debug.Log(msg);
     }
 
     // となりネズミ(敵) のいる方向のうちの1つを rotCode で返す
