@@ -10,13 +10,17 @@ public class Piece : UdonSharpBehaviour
     public Material MaterialBlue;
     public Material MaterialOrange;
 
-    private int _id;
+    private int _nClockChildrenAdded = 0;
+    private int _iClockChildrenInAction = 1;
+    private bool _clockRunning = false;
+
     // グリッドIDとは: 左上から数えた 0-indexの数字
     private int _asIsGridId = 0;
     private int _toBeGridId = 0;
     private int _asIsRotCode = 0;
     private int _toBeRotCode = 0;
 
+    public int pubpub;
     private int _realBoardSize;
     private Vector3[] _allPositions;
     private Vector3[] _allRotations = new Vector3[4] {
@@ -26,13 +30,14 @@ public class Piece : UdonSharpBehaviour
         new Vector3(270f, 0f, 0f)
     };
 
-    public void Initialize(string argColor,
+    public int Initialize(string argColor,
         int argRealBoardSize,
         Vector3[] argAllPositions,
         int argInitialGridId,
         int argInitialRotCode
     )
     {
+        pubpub = argRealBoardSize;
         _realBoardSize = argRealBoardSize;
         _allPositions = argAllPositions;
 
@@ -46,6 +51,8 @@ public class Piece : UdonSharpBehaviour
         SetMaterialMode(argColor);
         ChangeGridIdToGo(_toBeGridId);
         ChangeRotCodeToGo(_toBeRotCode);
+
+        return 0;
     }
 
     void Start()
@@ -57,9 +64,67 @@ public class Piece : UdonSharpBehaviour
 
     }
 
+    // Clock が訪れた場合
+    public int OnClockVisit(int argTicketNumber)
+    {   
+        // チケット番号が自然数ならば受け付け済の人の催促か完了報告
+        // レスポンス: -1(まだはやい) n(お前の出番だ) 0(完了との旨了解)
+        if ( argTicketNumber >= 1 && argTicketNumber <= _iClockChildrenInAction )
+        {
+            // 出番でないなら -1 で突っぱねる
+            if ( argTicketNumber < _iClockChildrenInAction )
+            {
+                return -1;
+            }
+            // 出番です
+            else if ( argTicketNumber == _iClockChildrenInAction )
+            {
+                // 実行に入る
+                if ( !_clockRunning )
+                {
+                    Debug.Log("お前の出番だ");
+                    _clockRunning = true;
+                    return 0;         // お前の出番だ
+                }
+                else
+                {
+                    Debug.Log("完了とのこと了解");
+                    _clockRunning = false;
+                    _iClockChildrenInAction++;
+                    return 0;                       // 了解。
+                }
+            }
+            // 起こらないことになってる
+            else
+            {
+                Debug.Log("見えるわけない チケット持ちが迷っとる");
+                return -1;
+            }
+        }
+        // チケット番号 0 の場合は登録申し込み
+        // 新規登録してチケット番号振ってあげる
+        else if ( argTicketNumber == 0 )
+        {
+            _nClockChildrenAdded++;
+            return _nClockChildrenAdded;
+        }
+        // 起こらないことになってる
+        else
+        {
+            Debug.Log("見えるわけない 初回チケット登録のミスか");
+            return -1;
+        }
+    }
+
     // グリッドIDにテレポート 
     public void MoveToGridIdAndRotCode(int argGridId, int argRotCode)
     {
+        string msg = "テレポート   グリッドID: " + argGridId.ToString();
+        msg += "\nVecter3.x = " + _allPositions[argGridId].x.ToString();
+        msg += "\nVecter3.y = " + _allPositions[argGridId].y.ToString();
+        msg += "\nVecter3.z = " + _allPositions[argGridId].z.ToString();
+        Debug.Log(msg);
+
         this.gameObject.transform.localPosition = _allPositions[argGridId];
         this.gameObject.transform.localEulerAngles = _allRotations[argRotCode]; 
     }
@@ -74,7 +139,6 @@ public class Piece : UdonSharpBehaviour
     // 目的のRotCodeを変える
     public void ChangeRotCodeToGo(int argToBeRotCode)
     {
-        Debug.Log("mbyaaaaa");
         this._asIsRotCode = this._toBeRotCode;
         this._toBeRotCode = argToBeRotCode;
         Debug.Log(this._asIsRotCode);

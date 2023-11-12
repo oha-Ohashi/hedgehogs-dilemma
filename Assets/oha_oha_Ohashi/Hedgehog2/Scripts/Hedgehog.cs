@@ -139,6 +139,8 @@ public class Hedgehog : UdonSharpBehaviour
 
             // 最初の合法手提示
             LegalActions(_localCurrentBoard);
+            
+            MoveController.InitializeMove(_realBoardSize);
         } else if ( GamePhase == 2 ) {
             // なにもしないよ
         }
@@ -591,7 +593,7 @@ public class Hedgehog : UdonSharpBehaviour
         // アニメーション生成してrefBoard操作( スポーン )
         int diffOrderValue = isBlueTurn ? 0b0000 : 0b0100;
         int letsSpawnSingleAnim = (spawningGridId << 8) +
-                                    (0b0000 << 4) + diffOrderValue + newPieceRotCode;
+                                    (0b0001 << 4) + diffOrderValue + newPieceRotCode;
         resAnimPackage[++resAnimPackage[0]] = letsSpawnSingleAnim;
         ApplySingleAnimToBoard(letsSpawnSingleAnim, ref refBoard);
 
@@ -858,7 +860,7 @@ public class Hedgehog : UdonSharpBehaviour
     }
 
     // ある rotCode に deltaRot を適用して新しい rotCode 作る
-    private int AlterRotCode( int asisRotCode, int deltaRot )
+    public int AlterRotCode( int asisRotCode, int deltaRot )
     {
        int[][] rotCodesAlteredByDeltaRot = new int[4][];
        rotCodesAlteredByDeltaRot[0b00] = new int[4] {0, 1, 2, 3}; // 回転量: 0
@@ -903,6 +905,20 @@ public class Hedgehog : UdonSharpBehaviour
             msg += "\n黄色スポーンをrefBoardに書き込みました。 squareState = " + Rule.TrimBinary(spawningSquareState, 8);
             if ( DebugMode ) Debug.Log(msg + msgDetail);
             refBoard[3 + asisGridId] = spawningSquareState;
+        }
+        // スポーン
+        else if ( argAnimOrderType == 0b0001 )
+        {
+            bool spawningBlue = (argAnimOrderValue & 0b0100) == 0;
+            byte pieceTypePart = spawningBlue ? (byte)(0b0010_0000) : (byte)(0b0001_0000);
+            byte pieceRotCodePart = (byte)((argAnimOrderValue & 0b0011) << 2);
+            byte spawningSquareState = (byte)(pieceTypePart | pieceRotCodePart);
+
+            refBoard[3 + asisGridId] = spawningSquareState;
+
+            msg += spawningBlue ? "\n青スポーンを書き込みました: " : "\nオレンジスポーンを書き込みました: ";
+            msg += "SquareState = " + Rule.TrimBinary(spawningSquareState, 8);
+            if ( DebugMode ) Debug.Log(msg + msgDetail);
         }
         // びっくりする
         else if ( argAnimOrderType == 0b1111 )
