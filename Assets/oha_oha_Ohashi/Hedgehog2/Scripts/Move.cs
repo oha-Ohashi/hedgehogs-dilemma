@@ -239,8 +239,9 @@ public class Move : UdonSharpBehaviour
         return 0;
     }
 
-    public void ForceSync(byte[] argBoard)
+    public void SpawnWholeBoard(byte[] argBoard)
     {
+        DestroyAllThePieces();
         //
         for ( int i = 0; i < 100; i++ ) {
             byte squareState = argBoard[3 + i];
@@ -250,7 +251,7 @@ public class Move : UdonSharpBehaviour
             if (isBlue || isOrange) {
                 string color = isBlue ? "blue" : "orange";
                 SpawnPiece(i, rotCode, color, 0);
-            }
+            } 
         }
     }
 

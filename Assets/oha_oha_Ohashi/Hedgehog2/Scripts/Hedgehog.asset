@@ -1232,13 +1232,13 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: _latestOneMoveHappyset
+      Data: OneMoveBackupHappyset
     - Name: $v
       Entry: 7
       Data: 67|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: _latestOneMoveHappyset
+      Data: OneMoveBackupHappyset
     - Name: <UserType>k__BackingField
       Entry: 9
       Data: 63
@@ -1256,7 +1256,7 @@ MonoBehaviour:
       Data: 
     - Name: <IsSerialized>k__BackingField
       Entry: 5
-      Data: false
+      Data: true
     - Name: _fieldAttributes
       Entry: 7
       Data: 68|System.Collections.Generic.List`1[[System.Attribute, mscorlib]], mscorlib

@@ -160,14 +160,10 @@ public class Hedgehog : UdonSharpBehaviour
     //////////////////////////////////////////////////////////
     [UdonSynced, FieldChangeCallback(nameof(OneMoveHappyset))] 
     private uint[] uintArrayOneMoveHappyset = new uint[1] {0xFA};
-    private uint[] _latestOneMoveHappyset;
+    public uint[] OneMoveBackupHappyset = new uint[1] {0xFA};
     public uint[] OneMoveHappyset
     {
-        set { 
-            Debug.Log("(setter says) happy is set."); 
-            uintArrayOneMoveHappyset = value;
-            OneMoveHappysetChanged(); 
-        }
+        set { uintArrayOneMoveHappyset = value; OneMoveHappysetChanged();}
         get => uintArrayOneMoveHappyset;
     }
 
@@ -199,7 +195,6 @@ public class Hedgehog : UdonSharpBehaviour
             happysetTobeSubmitted[i + 2] = chunk;         // [2] ～ [26] に格納
         }
 
-        // SetOneMoveHappyset(happysetTobeSubmitted);
         return happysetTobeSubmitted;
     }
 
@@ -222,31 +217,13 @@ public class Hedgehog : UdonSharpBehaviour
     // フルビットのターングリッドなど特殊な値には特殊な処理
     private void OneMoveHappysetChanged()
     {
-        if ( DebugMode ) Debug.Log("ハッピーセット届きました。デコード前です。");
-        
-        // 特殊な意味を持つハッピーセットならば
-        if ( OneMoveHappyset.Length == 1 ) 
+        if ( OneMoveHappyset.Length == 27 )
         {
-            if ( DebugMode ) Debug.Log("ハッピーセットの長さ: " + OneMoveHappyset.Length.ToString());
-            // 避難用の値ならば
-            if ( OneMoveHappyset[0] == 0xFA )
-            {
-                if ( DebugMode ) Debug.Log("ハッピーセットは 0xFA でした。");
-            }
-            else {
-                if ( DebugMode ) Debug.Log("ハッピーセットは " + OneMoveHappyset[0].ToString() + " でした。");
-            } 
-        }
-        else if ( OneMoveHappyset.Length == 2 )
-        {
-            if ( DebugMode ) Debug.Log("ハッピーセットは サブリミナル new int[2]でした");
-            if ( DebugMode ) Debug.Log("同期検知させたいんやね");
-        }
-        // たぶん正常な値 ならば
-        else if ( OneMoveHappyset.Length == 27 )
-        {
-            _latestOneMoveHappyset = OneMoveHappyset;
+            if ( DebugMode ) Debug.Log("valid length of Happyset"); 
 
+            // リセット用の値を除外してバックアップ
+            OneMoveBackupHappyset = OneMoveHappyset;
+            
             // 結果その1
             uint brandNewNTurnAndGridId = OneMoveHappyset[0];
 
@@ -272,6 +249,10 @@ public class Hedgehog : UdonSharpBehaviour
             }
 
             ProcessSeparatedOneMoveHappyset(brandNewNTurnAndGridId, absolutelyNewBoard);
+        }
+        else if ( OneMoveHappyset.Length == 2 )
+        {
+            if ( DebugMode ) Debug.Log("リセット用長さね"); 
         }
         else
         {
@@ -513,19 +494,19 @@ public class Hedgehog : UdonSharpBehaviour
         // 前回の ハッピーセット から最新の手数が分かるぞい
         int nTurnAndGridIdPlusOne;      // 送りたいターングリッド
         int nTurn = 0;                  // あとで使いたいからいっこ外に宣言
-        if ( OneMoveHappyset[0] == (0xFA) ){
+        if ( OneMoveBackupHappyset[0] == (0xFA) ) {
             if ( DebugMode ) Debug.Log("初めて 着手送信しました");
             nTurnAndGridIdPlusOne = (0x0000_0000 << 16) + argGridId;
         } else {
             
             string moveMsg = "手慣れた 着手送信です";
-            moveMsg += "\nOneMoveHappyset[0]: " + _latestOneMoveHappyset[0].ToString();
-            moveMsg += "\nb: " + (_latestOneMoveHappyset[0] & (0xFFFF << 16)).ToString();
-            moveMsg += "\nc: " + ((_latestOneMoveHappyset[0] & (0xFFFF << 16)) >> 16).ToString();
-            moveMsg += "\nd: " + ((uint)((_latestOneMoveHappyset[0] & (0xFFFF << 16)) >> 16)).ToString();
+            moveMsg += "\nOneMoveBackupHappyset[0]: " + OneMoveBackupHappyset[0].ToString();
+            moveMsg += "\nb: " + (OneMoveBackupHappyset[0] & (0xFFFF << 16)).ToString();
+            moveMsg += "\nc: " + ((OneMoveBackupHappyset[0] & (0xFFFF << 16)) >> 16).ToString();
+            moveMsg += "\nd: " + ((uint)((OneMoveBackupHappyset[0] & (0xFFFF << 16)) >> 16)).ToString();
             if ( DebugMode ) Debug.Log(moveMsg);
             // 最新のハッピーセットの手数 に 1 を足してハッピーセットに入れる
-            nTurn = (int)((_latestOneMoveHappyset[0] & (0xFFFF << 16)) >> 16); 
+            nTurn = (int)((OneMoveBackupHappyset[0] & (0xFFFF << 16)) >> 16); 
             nTurn++;
             nTurnAndGridIdPlusOne = (nTurn << 16) + argGridId;
         }

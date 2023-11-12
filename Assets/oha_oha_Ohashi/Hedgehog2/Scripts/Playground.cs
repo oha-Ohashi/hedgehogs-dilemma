@@ -173,7 +173,13 @@ public class Playground : UdonSharpBehaviour
         // 長さ: 2 はリセット用の長さ。サブリミナル的に現れる
         Master.SetOneMoveHappyset(happysetTobeSubmitted);
         // 遅延入れて送信
-        SendCustomEventDelayedSeconds(nameof(Master.ResetOneMoveHappyset), Master.MoveFireRateLimit * 0.7f);
+        SendCustomEventDelayedSeconds(nameof(ResetOneMoveHappyset), Master.MoveFireRateLimit * 0.7f);
+    }
+    // リセット用ハッピーセット送信するだけのメソッド
+    public void ResetOneMoveHappyset()
+    {
+        if ( DebugMode ) Debug.Log("リセット用 ハッピーセットです");
+        Master.SetOneMoveHappyset(new uint[2]);
     }
 
     // 誰かが動かしたね
@@ -184,7 +190,7 @@ public class Playground : UdonSharpBehaviour
         _localPlaygroundBoard = argNewBoard;
         Master.ShowCheapPieces(_localPlaygroundBoard);
 
-        MoveController.ForceSync(_localPlaygroundBoard);
+        MoveController.SpawnWholeBoard(_localPlaygroundBoard);
     }
 
     // プリセットを実行
