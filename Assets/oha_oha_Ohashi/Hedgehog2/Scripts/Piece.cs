@@ -37,6 +37,8 @@ public class Piece : UdonSharpBehaviour
         int argInitialRotCode
     )
     {
+        //Debug.Log("piece initialized");
+
         pubpub = argRealBoardSize;
         _realBoardSize = argRealBoardSize;
         _allPositions = argAllPositions;

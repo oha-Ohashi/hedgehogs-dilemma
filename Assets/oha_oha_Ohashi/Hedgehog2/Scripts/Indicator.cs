@@ -7,23 +7,47 @@ using VRC.Udon;
 public class Indicator : UdonSharpBehaviour
 {
     public Hedgehog Master;
+    public Playground Playground;
 
     // グリッドIDとは: 左上から数えた 0-indexの数字
     private int _gridId;
+    private bool _isPlayGroundIndicator = false;
+    private bool _isPlayGroundBlue;
     private float _gridWidth = 0.4195f / 3.0f;
 
     void Start()
     {
-        
+    }
+
+    void Update()
+    {
+        /*
+        // 軽量化対象筆頭
+        if (Master.MoveAllowed) {
+            this.gameObject.GetComponent<Collider>().enabled = true;
+        } else {
+            this.gameObject.GetComponent<Collider>().enabled = false;
+        }
+        */
     }
 
     public override void Interact()
     {
-        if ( Master.MoveAllowed )
+        Debug.Log("Grid interacted: " + _gridId.ToString());
+        Debug.Log(_isPlayGroundBlue);
+
+        if ( Master.TryFire() )
         {
-            Debug.Log("Grid interacted: " + _gridId.ToString());
-            Master.IndicatorInteracted(_gridId);
-        } 
+            if (!_isPlayGroundIndicator)
+            {
+                Master.IndicatorInteracted(_gridId);
+            }
+            else
+            {
+                Playground.FreePlace(_gridId, true, _isPlayGroundBlue);
+                Playground.PushLocalBoardAsHappyset();
+            }
+        }
         else
         {
             Debug.Log("着手は " + Master.MoveFireRateLimit.ToString() + " 秒に1回だけ！！");
@@ -54,5 +78,12 @@ public class Indicator : UdonSharpBehaviour
             maxY - row * _gridWidth,
             minZ + col * _gridWidth
         );
+    }
+
+    public void MoveToSquareAsPlayGroundIndicator(int gridId, int realBoardSize, bool isBlue)
+    {
+        MoveToSquare(gridId, realBoardSize);
+        _isPlayGroundIndicator = true;
+        _isPlayGroundBlue = isBlue;
     }
 }

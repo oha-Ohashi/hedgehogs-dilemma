@@ -40,6 +40,7 @@ public class Move : UdonSharpBehaviour
     // ボードサイズの確定
     public int InitializeMove(int argRealBoardSize)
     {
+        Debug.Log("Move Initialized");
         _realBoardSize = argRealBoardSize;
         _nSquaresOnBoard = _realBoardSize * _realBoardSize;
         _allPositions = new Vector3[_nSquaresOnBoard];
@@ -59,6 +60,17 @@ public class Move : UdonSharpBehaviour
         return 0;
     }
 
+    // すべてのハリネズミを Destroy (マスターから呼び出し想定)
+    public int DestroyAllThePieces()
+    {
+        int response = 0;
+        foreach(GameObject pieceObj in _pieceObjsSlot)
+        {
+            Destroy(pieceObj);
+            response++;
+        }
+        return response;
+    }
 
     // ターンずれる可能性あるかもな
     public int AcceptNTurnAndMakeSureItsUpToDate( int nTurn ) 
@@ -227,6 +239,21 @@ public class Move : UdonSharpBehaviour
         return 0;
     }
 
+    public void ForceSync(byte[] argBoard)
+    {
+        //
+        for ( int i = 0; i < 100; i++ ) {
+            byte squareState = argBoard[3 + i];
+            bool isBlue = (squareState & 0b0010_0000) > 0;
+            bool isOrange = (squareState & 0b0001_0000) > 0;
+            int rotCode = (squareState & 0b0000_1100) >> 2;
+            if (isBlue || isOrange) {
+                string color = isBlue ? "blue" : "orange";
+                SpawnPiece(i, rotCode, color, 0);
+            }
+        }
+    }
+
     // 新しいハリネズミをスポーン、スロットに登録
     public void SpawnPiece(int argGridId, int argRotCode, string argColor, float argDuration) {
         // 生産
@@ -380,14 +407,12 @@ public class Move : UdonSharpBehaviour
             InitializeMove(5);
             Demo();
         }
+        if (Input.GetKeyDown(KeyCode.F)) {
+            Debug.Log("F");
+        }
         if (Input.GetKeyDown(KeyCode.D)) {
             Debug.Log("D");
-            /*
-            */
-        }
-        if (Input.GetKeyDown(KeyCode.G)) {
-            Debug.Log("S");
-            Demo2();
+
         }
         if (Input.GetKeyDown(KeyCode.G)) {
             Debug.Log("G");
@@ -406,6 +431,7 @@ public class Move : UdonSharpBehaviour
         }
         if (Input.GetKeyDown(KeyCode.D)) {
             Debug.Log("D");
+            /*
             InitializeMove(5);
 
             SpawnPiece(10, 1, "orange", Tick(1));
@@ -419,9 +445,7 @@ public class Move : UdonSharpBehaviour
             SpawnPiece(20, 1, "orange", Tick(1));
             MoveForward(20, Tick(5));
             Rotate(21, 2, Tick(3));
-        }
-        if (Input.GetKeyDown(KeyCode.F)) {
-            Debug.Log("F");
+            */
         }
     }
     public int AssembleSingleAnim(int argGridId, int argAnimOrderType, int argAnimOrderValue)

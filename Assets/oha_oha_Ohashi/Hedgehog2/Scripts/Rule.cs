@@ -106,6 +106,12 @@ public class Rule : UdonSharpBehaviour
         return resGridIds;
     }
 
+    public int[] GetLegalMoves(byte[] board, bool isBlueTurn)
+    {
+        if ( DebugMode ) Debug.Log("オーバーライド？");
+        return new int[1] {123};
+    }
+
     // 見てる方向が目当てのコマ/空きマスだったらグリッドID返す。それ以外なら -1
     // 起点のグリッドIDと見たい方向、欲しいカテゴリフィルターを指定する
     public  int GetGridIdIfLookingAtWhatYouWant(int baseGridID, byte[] board, int targetRotCode, int filter)
