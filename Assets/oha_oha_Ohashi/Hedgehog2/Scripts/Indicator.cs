@@ -12,7 +12,6 @@ public class Indicator : UdonSharpBehaviour
     // グリッドIDとは: 左上から数えた 0-indexの数字
     private int _gridId;
     private bool _isPlayGroundIndicator = false;
-    private bool _isPlayGroundBlue;
     private float _gridWidth = 0.4195f / 3.0f;
 
     void Start()
@@ -34,7 +33,6 @@ public class Indicator : UdonSharpBehaviour
     public override void Interact()
     {
         Debug.Log("Grid interacted: " + _gridId.ToString());
-        Debug.Log(_isPlayGroundBlue);
 
         if ( Master.TryFire() )
         {
@@ -44,8 +42,10 @@ public class Indicator : UdonSharpBehaviour
             }
             else
             {
-                Playground.FreePlace(_gridId, true, _isPlayGroundBlue);
-                Playground.PushLocalBoardAsHappyset();
+                Playground.IndicatorInteracted(_gridId);
+
+                //
+                
             }
         }
         else
@@ -80,10 +80,9 @@ public class Indicator : UdonSharpBehaviour
         );
     }
 
-    public void MoveToSquareAsPlayGroundIndicator(int gridId, int realBoardSize, bool isBlue)
+    public void MoveToSquareAsPlayGroundIndicator(int gridId, int realBoardSize)
     {
         MoveToSquare(gridId, realBoardSize);
         _isPlayGroundIndicator = true;
-        _isPlayGroundBlue = isBlue;
     }
 }

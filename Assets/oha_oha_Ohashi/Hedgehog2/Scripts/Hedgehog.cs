@@ -136,6 +136,12 @@ public class Hedgehog : UdonSharpBehaviour
             if ( DebugMode ) Debug.Log("すべてを……最初からやり直す！！");
             // 全消し
             TerminateGame();
+
+            // ハッピーセット初期化
+            uint[] happyset = new uint[1] {0xFA};
+            SetOneMoveHappyset(happyset);
+            SendCustomEventDelayedSeconds(nameof(ResetOneMoveHappyset), MoveFireRateLimit * 0.8f);
+
         } else if (GamePhase == 1) {                            //ゲーム開始のゴング
             // 全消し
             TerminateGame();
@@ -148,10 +154,8 @@ public class Hedgehog : UdonSharpBehaviour
             // なにもしないよ
         } else if ( GamePhase == 3 ) {
             TerminateGame();
-            // プレイグラウンドへの親切心
-            MoveController.InitializeMove(_realBoardSize);
             // プレイグラウンド
-            Playground.EnterBoardDebuging(_realBoardSize);
+            Playground.InitializePlayground(_realBoardSize);
         }
     }
 
@@ -240,19 +244,33 @@ public class Hedgehog : UdonSharpBehaviour
                 absolutelyNewBoard[3 + (i*4 + 3)] = (byte)((OneMoveHappyset[2 + i] & 0x0000_00FF) >> (8 * 0));
             }   
 
-            // プレイグラウンド用のハッピーセットやんけ
-            if (brandNewNTurnAndGridId == 0xFFFF_FFFF)
+            // プレイグラウンド(フリープレイス)用のハッピーセットやんけ
+            if ( OneMoveHappyset[0] == 0xFFFF_FFFF )
             {
+                if ( DebugMode ) Debug.Log("プレイグラウンド(フリープレイス)用のハッピーセットやんけ"); 
                 Playground.NewBoardDelivered(absolutelyNewBoard);
-                // もう用はないです
+                // もう用済み
                 return;
             }
 
+            if ( DebugMode ) Debug.Log("本番用のハッピーセットやんけ/"); 
             ProcessSeparatedOneMoveHappyset(brandNewNTurnAndGridId, absolutelyNewBoard);
+        }
+        // 長さ3はプレイグラウンドの着手
+        else if ( OneMoveHappyset.Length == 3 && OneMoveHappyset[0] == 0xFFFF_FFFE )
+        {
+            if ( DebugMode ) Debug.Log("プレイグラウンド(プレイモード)用のハッピーセットやんけ"); 
+            Playground.NewNTurnAndGridIdDelivered( OneMoveHappyset[1] );
         }
         else if ( OneMoveHappyset.Length == 2 )
         {
             if ( DebugMode ) Debug.Log("リセット用長さね"); 
+        }
+        else if ( OneMoveHappyset.Length == 1 && OneMoveHappyset[0] == 0xFA )
+        {
+            if ( DebugMode ) Debug.Log("ハッピーセットを初期値に戻したいのね"); 
+
+            OneMoveBackupHappyset = OneMoveHappyset;
         }
         else
         {
@@ -489,16 +507,16 @@ public class Hedgehog : UdonSharpBehaviour
     ///////////////////////////////////////////////////////////////////////////////
     public void IndicatorInteracted(int argGridId)
     {
-        if ( DebugMode ) Debug.Log("--------- ここは IndicatorInteracted() ---------");
+        if ( DebugMode ) Debug.Log("--------- ここは 本家Hedgehogの IndicatorInteracted() ---------");
          
         // 前回の ハッピーセット から最新の手数が分かるぞい
-        int nTurnAndGridIdPlusOne;      // 送りたいターングリッド
-        int nTurn = 0;                  // あとで使いたいからいっこ外に宣言
+        int nTurnAndGridIdPlusOne;        // 送りたいターングリッド
+        int nTurn;                        // あとで使いたいからいっこ外に宣言
         if ( OneMoveBackupHappyset[0] == (0xFA) ) {
             if ( DebugMode ) Debug.Log("初めて 着手送信しました");
+            nTurn = 0;
             nTurnAndGridIdPlusOne = (0x0000_0000 << 16) + argGridId;
         } else {
-            
             string moveMsg = "手慣れた 着手送信です";
             moveMsg += "\nOneMoveBackupHappyset[0]: " + OneMoveBackupHappyset[0].ToString();
             moveMsg += "\nb: " + (OneMoveBackupHappyset[0] & (0xFFFF << 16)).ToString();
@@ -517,7 +535,7 @@ public class Hedgehog : UdonSharpBehaviour
         // 着手者はその場でハリネズミ動かしちゃう
         // こいつ副作用でローカルボード動かしちゃうから注意してね
         int[] animPackage = GenerateAnimPackage(nTurn, argGridId, ref _localCurrentBoard);
-        ExecuteAnimPackage(animPackage);
+        MoveController.AcceptDecodeProcessAnimPackage(animPackage);
 
         // チープピースを表示
         ShowCheapPieces(_localCurrentBoard);
@@ -548,7 +566,7 @@ public class Hedgehog : UdonSharpBehaviour
         ////////////////   アニメーション｢指示セット｣を生成   /////////////////
         ////////////////   _localCurrentBoard も書き換え   //////////////////
         int[] animPackage = GenerateAnimPackage(nTurn, gridId, ref _localCurrentBoard);
-        ExecuteAnimPackage(animPackage);
+        MoveController.AcceptDecodeProcessAnimPackage(animPackage);
 
         // チープピースを表示
         ShowCheapPieces(_localCurrentBoard);
@@ -697,6 +715,7 @@ public class Hedgehog : UdonSharpBehaviour
                     );
                 }
             }
+
             // 連鎖の末の鉢合わせを潰したら wanna go が gonna go になる
             // wanna go に重複がある場合、両者とも -2 になる
             gonnaGoGridIds = Rule.RemoveDuplicatesAndReplace(wannaGoGridIds, -2);
@@ -819,17 +838,6 @@ public class Hedgehog : UdonSharpBehaviour
             }
         }
         return resAnimPackage;
-    }
-
-    ///////////////////////   盤を動かす AnimPackage を実行   ///////////////////////
-    private void ExecuteAnimPackage(int[] argAnimPackage)
-    {
-        MoveController.AcceptDecodeProcessAnimPackage(argAnimPackage);
-
-        string msg = "MoveController で1ターン分動かすニキが終わりましたわ。";
-        msg += "\n_localCurrentBoard[0]: " + _localCurrentBoard[0].ToString();
-        msg += "\n_localCurrentBoard[1]: " + _localCurrentBoard[1].ToString();
-        if ( DebugMode ) Debug.Log(msg);
     }
 
     // となりネズミ(敵) のいる方向のうちの1つを rotCode で返す

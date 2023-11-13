@@ -29,8 +29,7 @@ public class Rule : UdonSharpBehaviour
     public int[] GetLegalMoves(byte[] board)
     {
         if ( DebugMode ) Debug.Log("--------  ここはGetLegelMoves()です --------");
-        int[] resGridIds = new int[board[0] * board[0]];  // 溢れない
-        resGridIds[0] = 0;                                  // resGridIds[0] は以降の要素数
+        int[] resGridIds;
 
         // ターン数が偶数なら青のターンであって、黄色の存在が知りたいよね
         //if ( DebugMode ) Debug.Log("board[1] " + board[1].ToString() + " -- board[1]==0xF9 " + (board[1]==FA));
@@ -40,6 +39,9 @@ public class Rule : UdonSharpBehaviour
         // 初回分岐。 初回は最も外側の辺以外置ける
         if ( nNextTurn == 0 )
         {
+            resGridIds = new int[board[0] * board[0]];  // 溢れない
+            resGridIds[0] = 0;                                  // resGridIds[0] は以降の要素数
+
             // すべてのグリッドIDのうち辺でないものをresGridIdsに追加
             // 1時的に1-indexed
             for (int i = 1; i <= board[0] * board[0]; i++){ 
@@ -53,63 +55,72 @@ public class Rule : UdonSharpBehaviour
                 }
                 //if ( DebugMode ) Debug.Log("グリッドID: " + i.ToString() + "は辺にあるか？: " + onEdge.ToString() + " resGridIds[0]: " + resGridIds[0].ToString());
             }
+
+            return resGridIds;
         }
         // 通常の合法手探索
         else
         {
-            // すべての有効グリッドIDから敵を探す
-            for (int targetGridId = 0; targetGridId < board[0] * board[0]; targetGridId++){
-                string msg2 = "targetGridId は: " + targetGridId.ToString();
-                byte targetSquareState = board[3 + targetGridId];
-                msg2 +="仮想敵squareState: " + TrimBinary(targetSquareState, 8);
-                // 敵なら
-                bool isBlueTurn = (nNextTurn % 2) == 0;
-                msg2 += "  isBlueTurn: " + isBlueTurn.ToString();
-                // WhatYouWantで使うよ
-                int enemyFilter = isBlueTurn ? 0b0001_0000 : 0b0010_0000;
-                bool thisSquareHasAnEnemy = (targetSquareState & enemyFilter) > 0;
-                msg2 += "   thisSquareHasEnemy: " + thisSquareHasAnEnemy.ToString();
-                if ( DebugMode ) Debug.Log(msg2);
-                // ターン数が偶数なら青のターンであって、黄色の存在が知りたいよね
-                // ようやく敵のいるマスが見つかったね
-                if ( thisSquareHasAnEnemy )
-                {
-                    // 空きマスだったら -1 以外のまともな値が入ってる
-                    int emptyFilter = 0b100;
-                    int[] gridIds = new int[4] {
-                        GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 0, emptyFilter),
-                        GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 1, emptyFilter),
-                        GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 2, emptyFilter),
-                        GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 3, emptyFilter)
-                    };
-                    // 上下ともに空きなら
-                    if ( (gridIds[0] >= 0) && (gridIds[2] >= 0) ) {
-                        resGridIds[++resGridIds[0]] = gridIds[0];
-                        resGridIds[++resGridIds[0]] = gridIds[2];
-                        if ( DebugMode ) Debug.Log("上下空いてたんで、 " + gridIds[0].ToString() + " と " + gridIds[2] + " を返り値に追加しときました。");
-                    }
-                    // 左右ともに空きなら
-                    if ( (gridIds[1] >= 0) && (gridIds[3] >= 0) ) {
-                        resGridIds[++resGridIds[0]] = gridIds[1];
-                        resGridIds[++resGridIds[0]] = gridIds[3];
-                        if ( DebugMode ) Debug.Log("左右空いてたんで、 " + gridIds[1].ToString() + " と " + gridIds[3] + " を返り値に追加しときました。");
-                    }
+            resGridIds = GetLegalMoves(board, nNextTurn);            
+            return resGridIds;
+        }
+    }
+
+    public int[] GetLegalMoves(byte[] board, int argNTurn)
+    {
+        if ( DebugMode ) Debug.Log("ボードと色が書いてあるタイプのGetLegalMovesだよ");
+
+        int[] resGridIds = new int[board[0] * board[0]];  // 溢れない
+        resGridIds[0] = 0;                                  // resGridIds[0] は以降の要素数
+
+        // すべての有効グリッドIDから敵を探す
+        for (int targetGridId = 0; targetGridId < board[0] * board[0]; targetGridId++){
+            string msg2 = "targetGridId は: " + targetGridId.ToString();
+            byte targetSquareState = board[3 + targetGridId];
+            msg2 +="仮想敵squareState: " + TrimBinary(targetSquareState, 8);
+            // WhatYouWantで使うよ
+            int enemyFilter = (argNTurn % 2 == 0) ? 0b0001_0000 : 0b0010_0000;
+            bool thisSquareHasAnEnemy = (targetSquareState & enemyFilter) > 0;
+            msg2 += "   thisSquareHasEnemy: " + thisSquareHasAnEnemy.ToString();
+            if ( DebugMode ) Debug.Log(msg2);
+            // ターン数が偶数なら青のターンであって、黄色の存在が知りたいよね
+            // ようやく敵のいるマスが見つかったね
+            if ( thisSquareHasAnEnemy )
+            {
+                // 空きマスだったら -1 以外のまともな値が入ってる
+                int emptyFilter = 0b100;
+                int[] gridIds = new int[4] {
+                    GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 0, emptyFilter),
+                    GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 1, emptyFilter),
+                    GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 2, emptyFilter),
+                    GetGridIdIfLookingAtWhatYouWant(targetGridId, board, 3, emptyFilter)
+                };
+                // 上下ともに空きなら
+                if ( (gridIds[0] >= 0) && (gridIds[2] >= 0) ) {
+                    resGridIds[++resGridIds[0]] = gridIds[0];
+                    resGridIds[++resGridIds[0]] = gridIds[2];
+                    if ( DebugMode ) Debug.Log("上下空いてたんで、 " + gridIds[0].ToString() + " と " + gridIds[2] + " を返り値に追加しときました。");
+                }
+                // 左右ともに空きなら
+                if ( (gridIds[1] >= 0) && (gridIds[3] >= 0) ) {
+                    resGridIds[++resGridIds[0]] = gridIds[1];
+                    resGridIds[++resGridIds[0]] = gridIds[3];
+                    if ( DebugMode ) Debug.Log("左右空いてたんで、 " + gridIds[1].ToString() + " と " + gridIds[3] + " を返り値に追加しときました。");
                 }
             }
         }
-        string msg = "!!!!合法手の数は " + resGridIds[0].ToString() + " 個でしたねぇ!!!!\n";
-        msg += "内訳: ";
-        for (int i = 1; i <= resGridIds[0]; i++){
-            msg += resGridIds[i].ToString() + ", ";
-        }
-        if ( DebugMode ) Debug.Log(msg);
+
         return resGridIds;
     }
 
-    public int[] GetLegalMoves(byte[] board, bool isBlueTurn)
+    public void LogLegalMoves(int[] argLegalMoves) 
     {
-        if ( DebugMode ) Debug.Log("オーバーライド？");
-        return new int[1] {123};
+        string msg = "!!!!合法手の数は " + argLegalMoves[0].ToString() + " 個でしたねぇ!!!!\n";
+        msg += "内訳: ";
+        for (int i = 1; i <= argLegalMoves[0]; i++){
+            msg += argLegalMoves[i].ToString() + ", ";
+        }
+        if ( DebugMode ) Debug.Log(msg);
     }
 
     // 見てる方向が目当てのコマ/空きマスだったらグリッドID返す。それ以外なら -1
@@ -206,10 +217,11 @@ public class Rule : UdonSharpBehaviour
             bool hasDuplication = false;
             for (int j = i + 1; j < argArray.Length; j++)
             {
-                if (argArray[i] == argArray[j])
+                // 枠外や行き止まり( -1 )の重複に意味はないから注意な
+                if ((argArray[i] == argArray[j]) && (argArray[i] != -1)) 
                 {
                     hasDuplication = true;
-                    argArray[j] = replacer;
+                    argArray[j] = replacer;     // 両成敗よ？？
                 }
             }
             if (hasDuplication) {

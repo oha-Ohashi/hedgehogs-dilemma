@@ -82,6 +82,11 @@ public class Move : UdonSharpBehaviour
     public int AcceptDecodeProcessAnimPackage( int[] argAnimPackage )
     {
         Debug.Log("Move Controller に渡ってきたね");
+
+        for ( int i = 0; i < 50; i++ ) {
+            // Debug.Log("アニパケ["+i.ToString()+"]: " + TrimBinary(argAnimPackage[i], 16));
+        }
+
         // 50行4列の配列にして時系列を整えてから上の業から再生 (Nとなりネズミ <= 4 なので)
         // 同じ行には同じ種類のアニメーションしかないから遅延時間も揃えられる
         int nAnims =  argAnimPackage[0];
@@ -464,5 +469,39 @@ public class Move : UdonSharpBehaviour
             (argSingleAnim & 0x00F0) >> 4,
             (argSingleAnim & 0x000F)    
         };
+    }
+
+    // 下から何bitか取り出して文字列にする
+    public  string TrimBinary(int target, int nDigits)
+    {
+        // ターゲットを2進数の文字列に変換
+        string binaryString = "";
+        while (target > 0)
+        {
+            int remainder = target % 2;
+            binaryString = remainder + binaryString;
+            target /= 2;
+        }
+
+        // 指定された桁数で切り取る
+        if (binaryString.Length <= nDigits)
+        {
+            return binaryString; // 桁数が文字列の長さ以下の場合、そのまま返す
+        }
+        else
+        {
+            int startIndex = binaryString.Length - nDigits;
+            int remainingDigits = binaryString.Length - startIndex;
+            int numberOfSpaces = (remainingDigits - 1) / 4; // 4文字ごとに1つのスペースを挿入
+            string formattedBinary = binaryString.Substring(startIndex, nDigits);
+            
+            for (int i = 0; i < numberOfSpaces; i++)
+            {
+                int spaceIndex = nDigits - (i + 1) * 4;
+                formattedBinary = formattedBinary.Insert(spaceIndex, " ");
+            }
+
+            return formattedBinary;
+        }
     }
 }

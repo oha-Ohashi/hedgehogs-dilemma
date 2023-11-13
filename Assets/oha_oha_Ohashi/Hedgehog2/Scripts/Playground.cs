@@ -15,6 +15,9 @@ public class Playground : UdonSharpBehaviour
 
     private byte[] _localPlaygroundBoard;
     private int _realBoardSize;
+    private bool _isFreePlace;
+    private bool _freePlaceBlue;
+    private int _nTurn;
 
     ///////////////////////     プレイグラウンドのインディケータ    /////////////////////////////
     public Transform ParentOfPlaygroundIndicators;
@@ -42,21 +45,39 @@ public class Playground : UdonSharpBehaviour
     //////////////////////////  プレイグラウンド //////////////////////////
     //////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////
+
+    // メモメモ
+        // 盤やアニメーションの同期はハッピーセットがやってくれるよ
+
     // プレイグラウンドのモード
-    ////// 1. コマ起き放題モード
+
+    // GamePhase == 3 に入った時
+    // プレイグラウンド初期化(enter = true0
+    // プレグラフェーズ → 0
+
+        // プレグラフェーズ == 0
+        // できること
+
+    // GamePhase == 3 を出る時 (Exit Playground)
+    // プレイグラウンド初期化(enter = false)
+
+    ////// 1. コマフリープレイスモード
+        ////// 常にあおかオレンジかのインディケータ出てる
         ////// 相互に切り替え可能
         ////// a. 青コマ起き放題モード 
         ////// b. オレンジコマ起き放題モード 
         ////// c. オート再現モード
-    ////// 2. 合法手表示モード
+    ////// 2. プレイモード
         ////// a. 青合法手表示
         ////// b. 青合法手表示
     ////// 3. 着手受付モード
     ////// 4. 終了待ちモード
 
 
-    // キーボード入力で入る
-    public void EnterBoardDebuging(int argRealBoardSize)
+    // GamePhase == 3 に入るとき、及び出ていくときに叩かれる
+    // 全員一度通ってくれる
+    // 他のでバガーに迷惑かけないように、ローカルのものだけ動かしてね
+    public void InitializePlayground(int argRealBoardSize)
     {
         if ( DebugMode ) Debug.Log("プレイグラウンドします。通常の入力をしないでください。");
 
@@ -65,10 +86,40 @@ public class Playground : UdonSharpBehaviour
         RepositionIndicators(_realBoardSize);
         _localPlaygroundBoard = Rule.GetInitialBoard(_realBoardSize);
 
-        // フリープレイス突入
-        EnterFreePlaceMode("nobody");
+        // リアルコマ全消し
+        MoveController.InitializeMove(_realBoardSize);
+
+        EnterFreePlaceMode(false, false);
+
+        step1buttons[0].interactable = true;
+        step1buttons[1].interactable = true;
+        step1buttons[2].interactable = true;
+        step1buttons[3].interactable = true;
+        step1buttons[4].interactable = true;
+        step1buttons[5].interactable = true;
+        step2buttons[0].interactable = true;
+        step2buttons[1].interactable = true;
+        step2buttons[2].interactable = true;
     }
 
+    // すべてのボタンを消す
+    public void WaitUntilDeath()
+    {
+        // 合法手ゼロにする
+        ShowLegalMoves(new int[1] {0}, false);
+
+        step1buttons[0].interactable = false;
+        step1buttons[1].interactable = false;
+        step1buttons[2].interactable = false;
+        step1buttons[3].interactable = false;
+        step1buttons[4].interactable = false;
+        step1buttons[5].interactable = false;
+        step2buttons[0].interactable = false;
+        step2buttons[1].interactable = false;
+        step2buttons[2].interactable = false;
+    }
+
+    // インディケータを再配置 (ボードサイズ的な意味で) (全部 inactive)
     public void RepositionIndicators(int argRealBoardSize) 
     {
         if ( DebugMode ) Debug.Log("インディケータを再配置する");
@@ -77,54 +128,94 @@ public class Playground : UdonSharpBehaviour
             _playgroundIndicatorsObjs[i].SetActive(false);
             _playgroundIndicatorsBehaviours[i].MoveToSquareAsPlayGroundIndicator(
                 i % 100,
-                argRealBoardSize,
-                i < 100
-            );      // これで <Indicatorの属性変わる>
+                argRealBoardSize
+            ); 
+        }
+    }
+
+    // 合法手を表示 (アタマにリセット入り)
+    private void ShowLegalMoves(int[] argLegalGridIds, bool isBlue)
+    {
+        for (int i = 0; i < 200; i++) {
+            _playgroundIndicatorsObjs[i].SetActive(false);
+        }
+
+        if (argLegalGridIds[0] > 0)
+        {
+            for (int i = 0; i < argLegalGridIds[0]; i++) {
+                int gridId = argLegalGridIds[1 + i];
+                int index = isBlue ? gridId : gridId + 100;
+                _playgroundIndicatorsObjs[index].SetActive(true);
+            }
         }
     }
 
     // フリープレイスを開始
-    public void EnterFreePlaceMode(string argColor)
+    public void EnterFreePlaceMode(bool argIsBlue, bool argIsOrange)
     {
-        bool showBlue = false;
-        bool showOrange = false;
+        _isFreePlace = true;
+        _freePlaceBlue = argIsBlue;
 
-        if (argColor == "nobody")
-        {
-            step1buttons[1].interactable = true;
-            step1buttons[2].interactable = true;
-        }
-        else if (argColor == "blue")
-        {
-            showBlue = true;
-            step1buttons[1].interactable = false;
-            step1buttons[2].interactable = true;
-        }
-        else if (argColor == "orange")
-        {
-            showOrange = true;
-            step1buttons[1].interactable = true;
-            step1buttons[2].interactable = false;
-        }
-        else
-        {
-            if (DebugMode) Debug.Log("嘘だ！！");
-        }
+        //ExitStep2Button.SetActive(false);
 
+        step1buttons[1].interactable = !argIsBlue;
+        step1buttons[2].interactable = !argIsOrange;
+
+        // インディケータ切り替え
+        SetPlaygroundIndicatorsVisible(argIsBlue, argIsOrange);
+    }
+
+    // 置き放題インディケータ切り替え
+    private void SetPlaygroundIndicatorsVisible(bool argShowBlue, bool argShowOrange)
+    {
         // 置き放題インディケータを表示
         for (int i = 0; i < 200; i++) {
             // 有効なグリッドIDなら見せるかも
             if ( i % 100 < _realBoardSize * _realBoardSize ) {
                 // 前半青、後半オレンジ
                 if ( i < 100 ){
-                    _playgroundIndicatorsObjs[i].SetActive(showBlue);
+                    _playgroundIndicatorsObjs[i].SetActive(argShowBlue);
                 } else {
-                    _playgroundIndicatorsObjs[i].SetActive(showOrange);
+                    _playgroundIndicatorsObjs[i].SetActive(argShowOrange);
                 }
             } else {
                 _playgroundIndicatorsObjs[i % 100].SetActive(false);
             }
         }
+
+    }
+
+    // ターン数は Interactの序盤でインクリメントするので合ってる
+    public void IndicatorInteracted(int argGridId)
+    {
+        if ( _isFreePlace )
+        {
+            FreePlace(argGridId, true, _freePlaceBlue);  // 2こめはhasColor
+            PushLocalBoardAsHappyset();
+        }
+        else
+        {
+            if ( DebugMode ) Debug.Log("--------- ここは プレイグラウンドの IndicatorInteracted() ---------");
+
+            if (DebugMode) Debug.Log("グリッドIDのみのハッピーセット作ります");
+
+            // スペシャルハッピーセットを作る
+            uint[] happyset = new uint[3] {
+                (uint)0xFFFF_FFFE,
+                (uint)((_nTurn << 16) | argGridId),
+                (uint)0
+            };
+            
+            // 配列型の同期変数は一度長さを変えてあげないと受信者に検知されない。(多分)
+            // 長さ: 2 はリセット用の長さ。目的が済んだらとりあえず入れとく。
+            Master.SetOneMoveHappyset(happyset);
+
+            SendCustomEventDelayedSeconds(
+                nameof(ResetOneMoveHappyset), 
+                Master.MoveFireRateLimit * 0.7f
+            );
+        }
+
     }
 
     // 呼び出し元: フリープレイスインディケータ、 プリセット
@@ -159,40 +250,6 @@ public class Playground : UdonSharpBehaviour
         }
     }
 
-    // ボードを同期
-    public void PushLocalBoardAsHappyset()
-    {
-        if (DebugMode) Debug.Log("ターングリッドなしのハッピーセット作ります");
-        // スペシャルハッピーセットを作る
-        uint[] happysetTobeSubmitted = Master.AssembleOneMoveHappyset(
-            (uint)0xFFFF_FFFF, 
-            _localPlaygroundBoard
-        );
-
-        // 配列型の同期変数は一度長さを変えてあげないと受信者に検知されない。(多分)
-        // 長さ: 2 はリセット用の長さ。サブリミナル的に現れる
-        Master.SetOneMoveHappyset(happysetTobeSubmitted);
-        // 遅延入れて送信
-        SendCustomEventDelayedSeconds(nameof(ResetOneMoveHappyset), Master.MoveFireRateLimit * 0.7f);
-    }
-    // リセット用ハッピーセット送信するだけのメソッド
-    public void ResetOneMoveHappyset()
-    {
-        if ( DebugMode ) Debug.Log("リセット用 ハッピーセットです");
-        Master.SetOneMoveHappyset(new uint[2]);
-    }
-
-    // 誰かが動かしたね
-    // Masterの同期の関数と連動
-    public void NewBoardDelivered(byte[] argNewBoard)
-    {
-        // 盤を強制同期
-        _localPlaygroundBoard = argNewBoard;
-        Master.ShowCheapPieces(_localPlaygroundBoard);
-
-        MoveController.SpawnWholeBoard(_localPlaygroundBoard);
-    }
-
     // プリセットを実行
     public void RunAutoPlacePreset(int argOption)
     {
@@ -216,7 +273,6 @@ public class Playground : UdonSharpBehaviour
                 presetIsBlues[argOption][i]
             );
         }
-        PushLocalBoardAsHappyset();
     }
 
     // オールクリア
@@ -227,88 +283,152 @@ public class Playground : UdonSharpBehaviour
             _localPlaygroundBoard[3 + i] = (byte)0b0100_0000;
         }
     }
-
-    // Button 用
-    public void ExitBoardDebuging()
+    // ボードを同期
+    public void PushLocalBoardAsHappyset()
     {
-        foreach(Button btn in step2buttons) {
-            btn.interactable = true;
-        }
-        foreach(Button btn in step1buttons) {
-            btn.interactable = true;
-        }
+        if (DebugMode) Debug.Log("ターングリッドなしのハッピーセット作ります");
+        // スペシャルハッピーセットを作る
+        uint[] happysetTobeSubmitted = Master.AssembleOneMoveHappyset(
+            (uint)0xFFFF_FFFF, 
+            _localPlaygroundBoard
+        );
 
-        Master.SetGamePhase(0);
+        // 配列型の同期変数は一度長さを変えてあげないと受信者に検知されない。(多分)
+        // 長さ: 2 はリセット用の長さ。サブリミナル的に現れる
+        Master.SetOneMoveHappyset(happysetTobeSubmitted);
+        // 遅延入れて送信
+        SendCustomEventDelayedSeconds(nameof(ResetOneMoveHappyset), Master.MoveFireRateLimit * 0.7f);
+    }
+
+    // リセット用ハッピーセット送信するだけのメソッド
+    public void ResetOneMoveHappyset()
+    {
+        if ( DebugMode ) Debug.Log("リセット用 ハッピーセットです");
+        Master.SetOneMoveHappyset(new uint[2]);
     }
 
 
-    /////////////////////// STEP 1 //////////////////
+    // 誰かが動かしたね
+    // Masterの同期の関数と連動
+    public void NewBoardDelivered(byte[] argNewBoard)
+    {
+        // 盤を強制同期
+        _localPlaygroundBoard = argNewBoard;
+        Master.ShowCheapPieces(_localPlaygroundBoard);
+
+        MoveController.SpawnWholeBoard(_localPlaygroundBoard);
+    }
+
+    public void NewNTurnAndGridIdDelivered(uint argNTurnAndGridId)
+    {
+        if ( DebugMode ) Debug.Log("--------- プレイグラウンドプレイグラウンド            ---------");
+        if ( DebugMode ) Debug.Log("--------- 盤を変えます。ターングリッド頂きましたので。 ---------");
+
+        // デコード
+        int nTurn = (int)(argNTurnAndGridId >> 16);
+        int gridId = (int)(argNTurnAndGridId & 0xFFFF);
+
+        ////////////////   アニメーション｢指示セット｣を生成   /////////////////
+        ////////////////   _localCurrentBoard も書き換え   //////////////////
+        int[] animPackage = Master.GenerateAnimPackage(nTurn, gridId, ref _localPlaygroundBoard);
+        MoveController.AcceptDecodeProcessAnimPackage(animPackage);
+
+        // チープピースを表示
+        Master.ShowCheapPieces(_localPlaygroundBoard);
+
+        
+        WaitUntilDeath();
+    }
+
+    // プレイモードに入る
+    public void EnterExamineMoveMode(string argWhosTurn)
+    {
+        _isFreePlace = false;
+
+        // フリープレイスインディケータを非表示   
+        SetPlaygroundIndicatorsVisible(false, false);
+
+        if ( argWhosTurn == "blue" || argWhosTurn == "orange" )
+        {
+            if (argWhosTurn == "blue") {
+                _nTurn = 2;
+            }
+            else {
+                _nTurn = 3;
+            }
+
+            // Playground ゲームの始まり
+            // Legal 関係は現状のターン数でいいよ
+            int[] legalMoves = Rule.GetLegalMoves(_localPlaygroundBoard, _nTurn);
+
+            ShowLegalMoves(legalMoves, _nTurn % 2 == 0);
+        }
+        // 合法手表示しない(写真撮影用？)
+        else
+        {
+
+        }
+    }
+
+   /////////////////////// STEP 1 //////////////////
     // placement reset
     public void PlayGroundButtonPressed1() {
-        EnterFreePlaceMode("nobody");
+        EnterFreePlaceMode(false, false);
 
+        CleanUpTheBoard();
+        PushLocalBoardAsHappyset();
     }
     // place blue
     public void PlayGroundButtonPressed2() {
-        EnterFreePlaceMode("blue");
+        EnterFreePlaceMode(true, false);
     }
     // place orage
     public void PlayGroundButtonPressed3() {
-        EnterFreePlaceMode("orange");
+        EnterFreePlaceMode(false, true);
     }
     // preset1
     public void PlayGroundButtonPressed4() {
-        EnterFreePlaceMode("nobody");
+        EnterFreePlaceMode(false, false);
 
+        CleanUpTheBoard();
         RunAutoPlacePreset(0);
+        PushLocalBoardAsHappyset();
     }
     // preset2
     public void PlayGroundButtonPressed5() {
-        EnterFreePlaceMode("nobody");
+        EnterFreePlaceMode(false, false);
 
+        CleanUpTheBoard();
         RunAutoPlacePreset(1);
+        PushLocalBoardAsHappyset();
     }
     // preset3
     public void PlayGroundButtonPressed6() {
-        EnterFreePlaceMode("nobody");
+        EnterFreePlaceMode(false, false);
 
+        CleanUpTheBoard();
         RunAutoPlacePreset(2);
+        PushLocalBoardAsHappyset();
     }
     /////////////////////// STEP 2 //////////////////
     // nobody Plays
     public void PlayGroundButtonPressed7() {
-
-        EnableStep1or2(false, true);
+        EnterExamineMoveMode("nobody");
     }
     // Play blue
     public void PlayGroundButtonPressed8() {
-
-        EnableStep1or2(false, true);
+        EnterExamineMoveMode("blue");
     }
     // Play orange
     public void PlayGroundButtonPressed9() {
-
-        EnableStep1or2(false, true);
+        EnterExamineMoveMode("orange");
     }
-    // exit Play phase
+    // exit Play phase  (廃止予定))
     public void PlayGroundButtonPressed10() {
-
-        EnableStep1or2(false, true);
     }
     // Exit Playground
     public void PlayGroundButtonPressed11() {
-        EnableStep1or2(false, true);
-    }
-
-    public void EnableOneOfStep1(int argWhich) {
-        
-    }
-    public void EnableStep1or2(bool arg1, bool arg2) {
-        foreach(Button btn in step1buttons) {
-            btn.interactable = arg1;
-        }
-        foreach(Button btn in step2buttons) {
-            btn.interactable = arg2;
-        }
+        // Exit して GamePhase == 0
+        Master.SetGamePhase(0);
     }
 }
