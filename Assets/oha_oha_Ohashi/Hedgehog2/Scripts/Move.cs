@@ -82,15 +82,33 @@ public class Move : UdonSharpBehaviour
     public int AcceptDecodeProcessAnimPackage( int[] argAnimPackage )
     {
         Debug.Log("Move Controller に渡ってきたね");
+        int nAnims =  argAnimPackage[0];
+        Debug.Log("int[] argAnimPackage の長さ: " + nAnims.ToString());
 
-        for ( int i = 0; i < 50; i++ ) {
-            // Debug.Log("アニパケ["+i.ToString()+"]: " + TrimBinary(argAnimPackage[i], 16));
+        for ( int i = 0; i < argAnimPackage[0]; i++ ) {
+            Debug.Log("アニパケ["+i.ToString()+"]: " + TrimBinary(argAnimPackage[1 + i], 16));
+        }
+
+        // ループニキを記憶
+        int[] iAnimsToSkip = new int[5];  // [0]:要素数  [1~4]:グリッドID
+        for ( int i = 0; i < nAnims; i++ ) {
+            int[] valueDesembled = DesembleSingleAnim(argAnimPackage[1 + i]);
+            string singleAnimMsg = "animPackage[" + (1 + i).ToString() + "]:";
+            singleAnimMsg += "\nGridId: " + valueDesembled[0];
+            singleAnimMsg += "\nOrder Type: " + valueDesembled[1];
+            singleAnimMsg += "\nOrder Value: " + valueDesembled[2];
+            Debug.Log(singleAnimMsg);
+
+            if ( valueDesembled[1] == 0b1001 ) {
+                iAnimsToSkip[0]++;
+                iAnimsToSkip[iAnimsToSkip[0]] = i;
+            }
+
+            Debug.Log("無限ループ " + iAnimsToSkip[0].ToString() + "人発見！！");
         }
 
         // 50行4列の配列にして時系列を整えてから上の業から再生 (Nとなりネズミ <= 4 なので)
         // 同じ行には同じ種類のアニメーションしかないから遅延時間も揃えられる
-        int nAnims =  argAnimPackage[0];
-        Debug.Log("int[] argAnimPackage の長さ: " + nAnims.ToString());
         int[][] animStock = new int[50][];       
 
         for ( int i = 0; i < 50; i++ ) {
@@ -105,7 +123,7 @@ public class Move : UdonSharpBehaviour
         // スポーンフェーズ     必ず1回ある
         animStock[row][0] = argAnimPackage[1 + iAnims];
         row++;
-        iAnims++;
+        iAnims = PlusTwoWhenItsIn(iAnims, iAnimsToSkip);
 
         // どのタイプも検知されなかったらソート終了
         bool loopHasSomething = true;
@@ -124,7 +142,7 @@ public class Move : UdonSharpBehaviour
 
                 while ( NameOfSingleAnimType(argAnimPackage[1 + iAnims]) == typeNames[iType] ) {
                     animStock[row][col] = argAnimPackage[1 + iAnims];
-                    iAnims++;
+                    iAnims = PlusTwoWhenItsIn(iAnims, iAnimsToSkip);
                     col++;
                 }
 
@@ -138,21 +156,37 @@ public class Move : UdonSharpBehaviour
 
         for ( int r = 0; r < 50; r++ ) {
             for ( int c = 0; c < 4; c++ ) {
-                int value = animStock[r][c];
-                if ( value > 0 ) {
-                    int[] valueDesembled = DesembleSingleAnim(value);
+                int valueSingleAnim = animStock[r][c];
+                if ( valueSingleAnim > 0 ) {
+                    int[] valueDesembled = DesembleSingleAnim(valueSingleAnim);
                     string singleAnimMsg = "animStock[" + r.ToString() + "][" + c.ToString() + "]:";
                     singleAnimMsg += "\nGridId: " + valueDesembled[0];
                     singleAnimMsg += "\nOrder Type: " + valueDesembled[1];
                     singleAnimMsg += "\nOrder Value: " + valueDesembled[2];
                     Debug.Log(singleAnimMsg);
 
-                    PlaySingleAnim(value);
+                    PlaySingleAnim(valueSingleAnim);
                 }
             }
         }
+        
+        // 無限ループニキだけ後で足す
+        for (int i = 0; i < iAnimsToSkip[0]; i++){
+            Debug.Log("無限ループくんのアニパケの中の番号([0]は除く): " + iAnimsToSkip[1 + i]);
+            PlaySingleAnim(argAnimPackage[1 + iAnimsToSkip[1 + i]]);
+        }
 
         return 0;
+    }
+
+    private int PlusTwoWhenItsIn(int argGridId, int[] argIntArray)
+    {
+        for (int i = 0; i < argIntArray[0]; i++){
+            if (argGridId == argIntArray[1 + i]){
+                return argGridId + 2;
+            }
+        }
+        return argGridId + 1;
     }
 
     private string NameOfSingleAnimType(int argSingleAnim)
@@ -240,6 +274,10 @@ public class Move : UdonSharpBehaviour
         {
             MakeItWaiting(animGridId, animValue);
         }
+        else if ( animType == 0b1001 )
+        {
+            StartInfiniteLoop(animGridId, animValue, Tick(2));
+        }
 
         return 0;
     }
@@ -281,8 +319,8 @@ public class Move : UdonSharpBehaviour
     private void GiveSurpriseEmote(int argGridId, float argDuration) {
     }
     
-    // 前進
-    private void MoveForward(int argGridId, float argDuration) {
+    // 前進 目的地のグリッドIDを返す
+    private int MoveForward(int argGridId, float argDuration) {
         int[] diff = new int[4]{ -_realBoardSize, 1, _realBoardSize, -1 };
         int toBeGridId = argGridId + diff[_rotCodes[argGridId]];
         _pieceObjsSlot[toBeGridId] = _pieceObjsSlot[argGridId];
@@ -298,6 +336,7 @@ public class Move : UdonSharpBehaviour
             argDuration,
             true
         );
+        return toBeGridId;
     }
 
     // 回転
@@ -324,6 +363,17 @@ public class Move : UdonSharpBehaviour
     // N tick 待機
     private void MakeItWaiting(int argGridId, int argAnimValue) {
 
+    }
+    private void StartInfiniteLoop(int argGridId, int DeltaRot, float argDuration) {
+        // 無限ループくん
+        Debug.Log("Move.cs: 無限ループくん グリッドID: " + argGridId.ToString());
+        int currentGridId = argGridId;
+        for (int i = 0; i < 4; i++) {
+            Debug.Log("今のグリッドID: " + currentGridId.ToString());
+            //int nextGridId = MoveForward(currentGridId, argDuration);
+            //Rotate(nextGridId, DeltaRot, argDuration);
+            //Debug.Log("新しいグリッドID: " + nextGridId.ToString());
+        }
     }
 
     public void Demo() {
@@ -501,7 +551,42 @@ public class Move : UdonSharpBehaviour
                 formattedBinary = formattedBinary.Insert(spaceIndex, " ");
             }
 
+            string res = "";
+            for (int i = 0; i < 32; i += 4) {
+                res += "_" + formattedBinary.Substring(i, i + 4);
+                if ((i + 4) == nDigits){
+                    return res;
+                }
+            }
             return formattedBinary;
         }
     }
+
+    public static string ShowBinary(int target, int nDigits)
+    {
+        uint trueTarget = (uint)target;
+        uint counterpart = (uint)0b1000_0000_0000_0000_0000_0000_0000_0000;
+
+        string[] one_zero = new string[32];
+        for (int i = 0; i < 32; i++)
+        {
+            one_zero[i] = ( (trueTarget >> (31 - i)) & 0b01 ) == 1 ? "1" : "0";
+        }
+        
+        string res = "0b";
+        for (int i = 0; i < nDigits; i++)
+        {
+            int nOthers = 32 - nDigits;
+            
+                if (i % 4 == 0){
+                    res += "_";
+                }
+            
+                res += one_zero[(32-nDigits) + i];
+            
+        }
+
+        return res;
+    }
+    
 }

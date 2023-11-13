@@ -641,6 +641,9 @@ public class Hedgehog : UdonSharpBehaviour
             Rule.GetGridIdIfLookingAtWhatYouWant(spawningGridId, refBoard, 2, notEmptyFilter),
             Rule.GetGridIdIfLookingAtWhatYouWant(spawningGridId, refBoard, 3, notEmptyFilter)
         };
+        int[] originalGridIds = neighborsInActionGridIds;
+        int[] loopDeltaRot = new int[4];
+
         msg = "となりネズミのグリッドID:\n";
         msg += neighborsInActionGridIds[0] + ", ";
         msg += neighborsInActionGridIds[1] + ", ";
@@ -709,10 +712,24 @@ public class Hedgehog : UdonSharpBehaviour
                 // -1 のみなさまはとなりネズミ問い合わせサービスをご利用いただけません。
                 // 今が存在するとなりネズミのターン(1/4)ならば          
                 if ( neighborsInActionGridIds[i] >= 0 ) {
-                    // 現在のチェックマスが空マスだったら wanna go に追加
-                    wannaGoGridIds[i] = Rule.GetGridIdIfLookingAtWhatYouWant(
-                        neighborsInActionGridIds[i], refBoard, checkingRotCodes[i], 0b100
-                    );
+                    //来たことある！！
+                    if (neighborsInActionGridIds[i] == originalGridIds[i])
+                    {
+                        // アニメーション生成( 無限ループ )
+                        singleAnim = (neighborsInActionGridIds[i] << 8) + (0b1001 << 4) + loopDeltaRot[i];
+                        resAnimPackage[++resAnimPackage[0]] = singleAnim;
+                        ApplySingleAnimToBoard(singleAnim, ref refBoard);
+
+                        neighborsInActionGridIds[i] = -1;
+                    }
+                    // 来たことない
+                    else 
+                    {
+                        // 現在のチェックマスが空マスだったら wanna go に追加
+                        wannaGoGridIds[i] = Rule.GetGridIdIfLookingAtWhatYouWant(
+                            neighborsInActionGridIds[i], refBoard, checkingRotCodes[i], 0b100
+                        );
+                    }
                 }
             }
 
@@ -804,6 +821,9 @@ public class Hedgehog : UdonSharpBehaviour
                             resAnimPackage[++resAnimPackage[0]] = singleAnim;
                             ApplySingleAnimToBoard(singleAnim, ref refBoard);
                             checkingRotCodes[i] = leftRotCodeForThem;           // 向き変えてもっかい
+
+                            // 無限ループになったときの向き
+                            loopDeltaRot[i] = deltaLeftRot;
                         }
                         else if ( !enemyOnRight && enemyOnLeft )
                         {
@@ -821,6 +841,9 @@ public class Hedgehog : UdonSharpBehaviour
                             resAnimPackage[++resAnimPackage[0]] = singleAnim;
                             ApplySingleAnimToBoard(singleAnim, ref refBoard);
                             checkingRotCodes[i] = rightRotCodeForThem;          // 向き変えてもっかい
+
+                            // 無限ループになったときの向き
+                            loopDeltaRot[i] = deltaRightRot;
                         }
                         else {
                             if ( DebugMode ) Debug.Log("オワタ…… 右にも左にもおる…… もはやここまでか");
@@ -1004,7 +1027,8 @@ public class Hedgehog : UdonSharpBehaviour
             if ( DebugMode ) Debug.Log("合法手が 0 個以下だったので終了します");
             bool blueWins = boardHasBlueTurn;
             Panel.SwitchWinnersmarks(blueWins);
-            InclimentGamePhase();
+            //InclimentGamePhase();
+            SetGamePhase(2);
         }
     }
 

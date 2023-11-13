@@ -176,14 +176,14 @@ public class Rule : UdonSharpBehaviour
     {
         string msg = "-------- 私は GetGridIdIfLookingAtWhatYouWant()です。---------\n";
         msg += "baseGridID は " + baseGridID.ToString() + "でした。\n";
-        msg += "rotCode: " + TrimBinary(targetRotCode, 2) +"(" + targetGridId.ToString() + ")を調べたところ、\n";
+        msg += "rotCode: " + TrimBinary(targetRotCode, 4) +"(" + targetGridId.ToString() + ")を調べたところ、\n";
         if (resultCode == 0) {
             msg += "該当番地は無効なグリッドIDでした。";
         } else if (resultCode == 1) {
             msg += "該当rotCodeは異なる行をまたいでいました。";
         } else {
             msg += "このマスのsquareStateは " + TrimBinary(squareState, 8) + "でしたので、\n";
-            msg += "filter = " + TrimBinary(filter, 3);
+            msg += "filter = " + TrimBinary(filter, 4);
             msg += isWanted ? "を合格という結果になりました。" : "で弾かれました。";
         }
         if ( DebugMode ) Debug.Log(msg);

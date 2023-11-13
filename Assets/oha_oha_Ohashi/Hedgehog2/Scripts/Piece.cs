@@ -113,7 +113,8 @@ public class Piece : UdonSharpBehaviour
         // 起こらないことになってる
         else
         {
-            Debug.Log("見えるわけない 初回チケット登録のミスか");
+            //Debug.Log("見えるわけない 初回チケット登録のミスか");
+            Debug.Log("投げられたチケット番号: " + argTicketNumber.ToString());
             return -1;
         }
     }

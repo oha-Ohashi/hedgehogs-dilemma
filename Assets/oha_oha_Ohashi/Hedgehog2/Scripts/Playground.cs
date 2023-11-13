@@ -259,8 +259,8 @@ public class Playground : UdonSharpBehaviour
         presetGridIds[0] = new int[] {0, 6, 12, 18, 24};
         presetIsBlues[0] = new bool[] {true, false, true, false, true};
 
-        presetGridIds[1] = new int[] {};
-        presetIsBlues[1] = new bool[] {};
+        presetGridIds[1] = new int[] {2,9,18,12};
+        presetIsBlues[1] = new bool[] {true, true, true, false};
 
         presetGridIds[2] = new int[] {};
         presetIsBlues[2] = new bool[] {};
@@ -429,6 +429,7 @@ public class Playground : UdonSharpBehaviour
     // Exit Playground
     public void PlayGroundButtonPressed11() {
         // Exit して GamePhase == 0
+        InitializePlayground(_realBoardSize);
         Master.SetGamePhase(0);
     }
 }
