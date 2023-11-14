@@ -273,4 +273,31 @@ public class Rule : UdonSharpBehaviour
             return formattedBinary;
         }
     }
+
+    public static string ShowBinary(int target, int nDigits)
+    {
+        uint trueTarget = (uint)target;
+        uint counterpart = (uint)0b1000_0000_0000_0000_0000_0000_0000_0000;
+
+        string[] one_zero = new string[32];
+        for (int i = 0; i < 32; i++)
+        {
+            one_zero[i] = ( (trueTarget >> (31 - i)) & 0b01 ) == 1 ? "1" : "0";
+        }
+        
+        string res = "0b";
+        for (int i = 0; i < nDigits; i++)
+        {
+            int nOthers = 32 - nDigits;
+            
+                if (i % 4 == 0){
+                    res += "_";
+                }
+            
+                res += one_zero[(32-nDigits) + i];
+            
+        }
+
+        return res;
+    }
 }
