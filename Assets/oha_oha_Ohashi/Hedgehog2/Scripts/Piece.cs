@@ -10,6 +10,10 @@ public class Piece : UdonSharpBehaviour
     public Material MaterialBlue;
     public Material MaterialOrange;
 
+    private Clock _runningClock;
+    private int _iClockChildAddedLastTime = 0;
+    private int _iClockChildRunning = 0;
+    private int _iClockChildHasRun = 0;
     private int _nClockChildrenAdded = 0;
     private int _iClockChildrenInAction = 1;
     private bool _clockRunning = false;
@@ -22,6 +26,7 @@ public class Piece : UdonSharpBehaviour
 
     public int pubpub;
     private int _realBoardSize;
+    private float[] rotDiffList = new float[4] {0f, 90f, -90f, 180f};
     private Vector3[] _allPositions;
     private Vector3[] _allRotations = new Vector3[4] {
         new Vector3(  0f, 0f, 0f),
@@ -59,11 +64,50 @@ public class Piece : UdonSharpBehaviour
 
     void Start()
     {
+
     }
 
     void Update()
     {
+        // AddedLastTime    // インクリ on registered
+        // Running          // インクリ here                追い越さないように1個ずつすすむ
+        // HasRun           // インクリ on clock done
+        //
+        // 未処理タイマーあるねぇ
+        if ( _iClockChildAddedLastTime > _iClockChildHasRun )
+        {
+            // つついてあげないと
+            // それもう終わってますよ
+            if ( _iClockChildRunning == _iClockChildHasRun )
+            {
+                _iClockChildRunning++;
+                
+                GameObject runningObj = this.transform.GetChild(_iClockChildRunning).gameObject;
+                _runningClock = runningObj.GetComponent<Clock>();
 
+                _runningClock.OnNudged();
+            } 
+            // いま処理中みたいやね
+            else if ( _iClockChildRunning == _iClockChildHasRun + 1 )
+            {
+                _runningClock.RunOneLerp();
+            }
+            else
+            {
+            }
+        }
+    }
+
+    // 最後尾を覚える
+    public void OnClockRegistered()
+    {
+        _iClockChildAddedLastTime++;
+    }
+
+    // 最後尾が終わったならハングリー精神なくなる可能性ある
+    public void OnClockIsDone()
+    {
+        _iClockChildHasRun++;
     }
 
     // Clock が訪れた場合
@@ -144,8 +188,28 @@ public class Piece : UdonSharpBehaviour
     {
         this._asIsRotCode = this._toBeRotCode;
         this._toBeRotCode = argToBeRotCode;
-        Debug.Log(this._asIsRotCode);
-        Debug.Log(this._toBeRotCode);
+        // Debug.Log("change rot code to go 前の RotCode: " + this._asIsRotCode);
+        // Debug.Log("change rot code to go 後の RotCode: " + this._toBeRotCode);
+    }
+    
+    private Vector3[] GetRotationsWithout270(int argAsIsRotCode, int argToBeRotCode)
+    {
+        int deltaRot = GetDeltaRot(argAsIsRotCode, argToBeRotCode);
+        Vector3 asIsRot = _allRotations[argAsIsRotCode];
+        float newXrot = asIsRot.x + rotDiffList[deltaRot];
+        Vector3 toBeRot = new Vector3(newXrot, asIsRot.y, asIsRot.z);
+        return new Vector3[2] { asIsRot, toBeRot }; 
+    }
+
+    // 旧 → 新 2つの0123方向コードを比較して回転量を算出
+    private int GetDeltaRot(int asisRotCode, int tobeRotCode)
+    {
+        int[][] resDelta = new int[4][];
+        resDelta[0] = new int[4] {0b00, 0b01, 0b11, 0b10}; 
+        resDelta[1] = new int[4] {0b10, 0b00, 0b01, 0b11}; 
+        resDelta[2] = new int[4] {0b11, 0b10, 0b00, 0b01}; 
+        resDelta[3] = new int[4] {0b01, 0b11, 0b10, 0b00}; 
+        return resDelta[asisRotCode][tobeRotCode];
     }
 
     // Lerpしていく
@@ -159,9 +223,8 @@ public class Piece : UdonSharpBehaviour
         this.gameObject.transform.localPosition = posBetween;
 
         //////////////  角度  /////////////
-        Vector3 asIsRot = _allRotations[_asIsRotCode];
-        Vector3 toBeRot = _allRotations[_toBeRotCode];
-        Vector3 rotBetween = Vector3.Lerp(asIsRot, toBeRot, argInterpolateRot); 
+        Vector3[] rots = GetRotationsWithout270(_asIsRotCode, _toBeRotCode);
+        Vector3 rotBetween = Vector3.Lerp(rots[0], rots[1], argInterpolateRot); 
 
         this.gameObject.transform.localEulerAngles = rotBetween;
     }

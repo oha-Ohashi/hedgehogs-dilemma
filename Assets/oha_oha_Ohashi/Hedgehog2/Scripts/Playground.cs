@@ -36,6 +36,50 @@ public class Playground : UdonSharpBehaviour
         }
     }
 
+    void Update()
+    {
+        if ( Master.GamePhase == 3 )
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(1);
+                RunAutoPlacePresetFromKeyboard(3);
+                PushLocalBoardAsHappyset();
+            }
+            if (Input.GetKeyDown(KeyCode.Alpha2)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(2);
+                RunAutoPlacePresetFromKeyboard(3);
+                PushLocalBoardAsHappyset();
+            }
+            if (Input.GetKeyDown(KeyCode.F1)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(1);
+                PushLocalBoardAsHappyset();
+            }
+            if (Input.GetKeyDown(KeyCode.F2)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(2);
+                PushLocalBoardAsHappyset();
+            }
+            if (Input.GetKeyDown(KeyCode.F3)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(3);
+                PushLocalBoardAsHappyset();
+            }
+            if (Input.GetKeyDown(KeyCode.F4)) {
+                EnterFreePlaceMode(false, false);
+                CleanUpTheBoard();
+                RunAutoPlacePresetFromKeyboard(4);
+                PushLocalBoardAsHappyset();
+            }
+        }
+    }
 
     //////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////
@@ -256,14 +300,36 @@ public class Playground : UdonSharpBehaviour
         int[][] presetGridIds = new int[3][];
         bool[][] presetIsBlues = new bool[3][];
 
-        presetGridIds[0] = new int[] {0, 6, 12, 18, 24};
-        presetIsBlues[0] = new bool[] {true, false, true, false, true};
+        if ( _realBoardSize == 5 ) {
+            presetGridIds[0] = new int[] {0, 6, 12, 18, 24};
+            presetIsBlues[0] = new bool[] {true, false, true, false, true};
 
-        presetGridIds[1] = new int[] {2,9,18,12};
-        presetIsBlues[1] = new bool[] {true, true, true, false};
+            presetGridIds[1] = new int[] {2,9,18,12};
+            presetIsBlues[1] = new bool[] {true, true, true, false};
 
-        presetGridIds[2] = new int[] {};
-        presetIsBlues[2] = new bool[] {};
+            presetGridIds[2] = new int[] {};
+            presetIsBlues[2] = new bool[] {};
+        }
+        else if ( _realBoardSize == 8 ) {
+            presetGridIds[0] = new int[] {2,12,17,22,32,37,42,52, 19,26,28,35};
+            presetIsBlues[0] = new bool[] {false,false,false,false,false,false,false,false,true,true,true,true};
+
+            presetGridIds[1] = new int[] {2,12,17,37,42,52, 19,26,28,35};
+            presetIsBlues[1] = new bool[] {false,false,false,false,false,false,true,true,true,true};
+
+            presetGridIds[2] = new int[] {54,1,10,16,19,25,28,34,37,43,46,52,61};
+            presetIsBlues[2] = new bool[] {false,true,true,true,true,true,true,true,true,true,true,true,true};
+        }
+        else {
+            presetGridIds[0] = new int[] {0, 6, 12, 18, 24};
+            presetIsBlues[0] = new bool[] {true, false, true, false, true};
+
+            presetGridIds[1] = new int[] {2,9,18,12};
+            presetIsBlues[1] = new bool[] {true, true, true, false};
+
+            presetGridIds[2] = new int[] {};
+            presetIsBlues[2] = new bool[] {};
+        }
 
         for ( int i = 0; i < presetGridIds[argOption].Length; i++)
         {
@@ -271,6 +337,35 @@ public class Playground : UdonSharpBehaviour
                 presetGridIds[argOption][i],
                 true,
                 presetIsBlues[argOption][i]
+            );
+        }
+    }
+    // プリセットを実行
+    public void RunAutoPlacePresetFromKeyboard(int argOption)
+    {
+        int[] presetGridIds = new int[1] {0};
+        bool[] presetIsBlues = new bool[1] {true};
+
+        if (argOption == 1){
+            presetGridIds = new int[] {19, 2,12,17};
+            presetIsBlues = new bool[] {true,false,false,false,false};
+        } else if (argOption == 2){
+            presetGridIds = new int[] {26, 17,32,42};
+            presetIsBlues = new bool[] {true,false,false,false,false};
+        } else if (argOption == 3){
+            presetGridIds = new int[] {35, 37,42,52};
+            presetIsBlues = new bool[] {true,false,false,false,false};
+        } else if (argOption == 4){
+            presetGridIds = new int[] {28, 12,22,37};
+            presetIsBlues = new bool[] {true,false,false,false,false};
+        }
+
+        for ( int i = 0; i < presetGridIds.Length; i++)
+        {
+            FreePlace(
+                presetGridIds[i],
+                true,
+                presetIsBlues[i]
             );
         }
     }

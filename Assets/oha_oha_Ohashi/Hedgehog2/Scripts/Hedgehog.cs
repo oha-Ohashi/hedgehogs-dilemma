@@ -478,8 +478,7 @@ public class Hedgehog : UdonSharpBehaviour
         _localCurrentBoard = Rule.GetInitialBoard(_realBoardSize);
 
         // ハリネズミを全消し
-        int nPiecesDestroyed =  MoveController.DestroyAllThePieces();
-        if ( DebugMode ) Debug.Log(nPiecesDestroyed.ToString() + "個のハリネズミを消しました");
+        MoveController.DestroyAllThePieces();
 
         // インディケータ、モックコマ 全消し
         // その後定位置に配置
@@ -643,7 +642,10 @@ public class Hedgehog : UdonSharpBehaviour
         };
 
         // 無限ループ検知用変数
-        int[] originalGridIds = neighborsInActionGridIds;
+        int[] originalGridIds = new int[4];
+        for (int i = 0; i < 4; i++) {
+            originalGridIds[i] = neighborsInActionGridIds[i];
+        }
         int[] loopDeltaRot = new int[4];
         int[] iTaraied = new int[4];
 
@@ -852,7 +854,7 @@ public class Hedgehog : UdonSharpBehaviour
                         // 無限ループを検知
 
                         // 来たことあってかつたらい回し経験が4回ならそれは無限ループよな
-                        if (neighborsInActionGridIds[i] == originalGridIds[i] && (iTaraied[i] == 4))
+                        if ((neighborsInActionGridIds[i] == originalGridIds[i]) && (iTaraied[i] == 4))
                         {
                             // アニメーション生成( 無限ループ )
                             singleAnim = (neighborsInActionGridIds[i] << 8) + (0b1001 << 4) + loopDeltaRot[i];

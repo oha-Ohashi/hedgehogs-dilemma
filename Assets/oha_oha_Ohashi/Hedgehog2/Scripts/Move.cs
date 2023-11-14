@@ -6,7 +6,10 @@ using VRC.Udon;
 
 public class Move : UdonSharpBehaviour
 {
-    public Transform HousingComplexTransform;
+    public Transform HousingComplex;
+    public GameObject TinyWorld;
+    public int IWorld = -1;
+    private GameObject[] _hedgehogsHide = new GameObject[10000];
     public GameObject AdamPieceObj;
     public Piece AdamPieceBehaviour;
     public GameObject AdamClockObj;
@@ -58,15 +61,30 @@ public class Move : UdonSharpBehaviour
     }
 
     // すべてのハリネズミを Destroy (マスターから呼び出し想定)
-    public int DestroyAllThePieces()
+    // と見せかけて Inactive にするだけ
+    public void DestroyAllThePieces()
     {
-        int response = 0;
-        foreach(GameObject pieceObj in _pieceObjsSlot)
-        {
-            Destroy(pieceObj);
-            response++;
+        // 初期値 -1
+        IWorld++;
+
+        // 元の空オブジェクトを増殖
+        _hedgehogsHide[IWorld] = Instantiate(TinyWorld, HousingComplex);
+
+        // 前の世界を見えなくする
+        if (IWorld >= 1) {
+            _hedgehogsHide[IWorld - 1].SetActive(false);
         }
-        return response;
+
+        // 無限ループを止める
+        _letRecursiveGo = false;
+
+        /*Transform children = _hedgehogsHide.GetComponentInChildren < Transform > ();
+
+        foreach(Transform ob in children) {
+            Destroy(ob.gameObject);
+
+            response++;
+        }*/
     }
 
     // ターンずれる可能性あるかもな
@@ -87,90 +105,66 @@ public class Move : UdonSharpBehaviour
         }
 
         // ループニキを記憶
-        int[] iAnimsToSkip = new int[5];  // [0]:要素数  [1~4]: アニパケの中のインデックス
+        int[] iAnimsOfInfs = new int[4]  {-1, -1, -1, -1};
+        int[] singleAnimsOfInfs = new int[4] {-1, -1, -1, -1};       // [0~3]: アニパケの中のインデックス
+        int[] gridIdsOfInfs = new int[4] {-1, -1, -1, -1};
+        int[] deltaRotsOfInfs = new int[4] {-1, -1, -1, -1};
+        int iOutOfFour = 0;
         for ( int i = 0 + 1; i < nAnims + 1; i++ ) {
             int[] valueDesembled = DesembleSingleAnim(argAnimPackage[i]);
-            string singleAnimMsg = "animPackage[" + i.ToString() + "]:";
-            singleAnimMsg += ", GridId: " + valueDesembled[0];
-            singleAnimMsg += ", Type: " + valueDesembled[1];
-            singleAnimMsg += ", Value: " + valueDesembled[2];
-            Debug.Log(singleAnimMsg);
 
             if ( valueDesembled[1] == 0b1001 ) {
-                iAnimsToSkip[0]++;
-                iAnimsToSkip[iAnimsToSkip[0]] = i;
+                iAnimsOfInfs[iOutOfFour] = i;
+                singleAnimsOfInfs[iOutOfFour] = argAnimPackage[i];
+                gridIdsOfInfs[iOutOfFour] = valueDesembled[0];
+                deltaRotsOfInfs[iOutOfFour] = valueDesembled[2];
+                iOutOfFour++;
+            }
+            else
+            {
+                PlaySingleAnim(argAnimPackage[i]);
             }
         }
-        Debug.Log("無限ループ " + iAnimsToSkip[0].ToString() + "人発見！！");
-
-        // 50行4列の配列にして時系列を整えてから上の業から再生 (Nとなりネズミ <= 4 なので)
-        // 同じ行には同じ種類のアニメーションしかないから遅延時間も揃えられる
-        int[][] animStock = new int[50][];       
-
-        for ( int i = 0; i < 50; i++ ) {
-            animStock[i] = new int[4];
+        Debug.Log("無限ループ " + (iOutOfFour).ToString() + "人発見！！");
+        
+        /*
+        // 無限ループニキだけ後で足す
+        for (int i = 0 + 1; i < iAnimsOfInfs[0] + 1; i++){
+            Debug.Log("無限ループくん(SingleAnim)のアニパケの中のインデックス: " + iAnimsOfInfs[i]);
+            PlaySingleAnim(argAnimPackage[iAnimsOfInfs[i]]);
         }
+        */
 
-        // AnimPackage[1 + i] を読む度に インクリメントして AnimPackage を順番に見ていく
-        int iAnims = 1;                 // アニパケの中のインデックス  
-        int row = 0; int col = 0;
-
-        Debug.Log("スポーンフェーズ");
-        // スポーンフェーズ     必ず1回ある
-        animStock[row][0] = argAnimPackage[iAnims];
-        row++;
-        iAnims = PlusTwoWhenItsIn(iAnims, iAnimsToSkip);
-
-        // どのタイプも検知されなかったらソート終了
-        bool loopHasSomething = true;
-        while ( loopHasSomething ) {
-            loopHasSomething = false;   // 推定無罪の法則
-            string[] typeNames = new string[] {"surprise", "rotate", "forward"};
-
-            Debug.Log( ((row - 1) / 3).ToString() + " 回目の[びっくり, 回転, 直進]");
-                
-            for (int iType = 0; iType < 3; iType++) {
-                string phaseMsg = typeNames[iType] + " フェーズ";
-                phaseMsg += " (" + (iType + 1).ToString() + "/" + 3 + ")";
-                Debug.Log(phaseMsg);
-
-                col = 0;
-
-                while ( NameOfSingleAnimType(argAnimPackage[iAnims]) == typeNames[iType] ) {
-                    animStock[row][col] = argAnimPackage[iAnims];
-                    iAnims = PlusTwoWhenItsIn(iAnims, iAnimsToSkip);
-                    col++;
-                }
-
-                // このフェーズになにかあったなら
-                if ( col > 0 ) {
-                    row++;
-                    loopHasSomething = true;      // このループ意味あったわ
-                }
-            }
-        }
-
-        for ( int r = 0; r < 50; r++ ) {
-            for ( int c = 0; c < 4; c++ ) {
-                int valueSingleAnim = animStock[r][c];
-                if ( valueSingleAnim > 0 ) {
-                    int[] valueDesembled = DesembleSingleAnim(valueSingleAnim);
-                    string singleAnimMsg = "animStock[" + r.ToString() + "][" + c.ToString() + "]:";
-                    singleAnimMsg += ", GridId: " + valueDesembled[0];
-                    singleAnimMsg += ", Order Type: " + valueDesembled[1];
-                    singleAnimMsg += ",Order Value: " + valueDesembled[2];
-                    Debug.Log(singleAnimMsg);
-
-                    PlaySingleAnim(valueSingleAnim);
-                }
-            }
-        }
         
         // 無限ループニキだけ後で足す
-        for (int i = 0 + 1; i < iAnimsToSkip[0] + 1; i++){
-            Debug.Log("無限ループくん(SingleAnim)のアニパケの中のインデックス: " + iAnimsToSkip[i]);
-            PlaySingleAnim(argAnimPackage[iAnimsToSkip[i]]);
-        }
+        /*for (int i = 0 + 1; i < iAnimsOfInfs[0] + 1; i++){
+
+            bool flagItsInfAnim = false;
+            for (int iOutOfFour = 0; iOutOfFour < 4 + 1; iOutOfFour++){
+                if (iAnimsOfInfs[iOutOfFour] >= 0) {
+                    flagItsInfAnim = true;
+                }
+            }
+
+            if (!flagItsInfAnim) {
+                PlaySingleAnim(argAnimPackage[i]);
+            }
+        }*/
+    
+
+        StartRecursiveLoop(
+            gridIdsOfInfs,
+            deltaRotsOfInfs,
+            new float[3] {
+                Tick(50), Tick(80), Tick(300)
+            },
+            new float[3] {
+                Tick(10), Tick(10), Tick(10)
+            },
+            new float[3] {
+                Tick(5), Tick(5), Tick(5)
+            } 
+        );
 
         return 0;
     }
@@ -234,9 +228,9 @@ public class Move : UdonSharpBehaviour
         int animValue  = (argSingleAnim & 0x000F);
 
         string msg = "グリッドID: " + animGridId.ToString();
-        msg += "\nオーダータイプ: " + animType.ToString();
-        msg += "\nオーダーValue: " + animValue.ToString();
-        Debug.Log(msg);
+        msg += ", タイプ: " + animType.ToString();
+        msg += ", Value: " + animValue.ToString();
+        // Debug.Log(msg);
 
         // スポーン
         if ( animType == 0b0001 ) 
@@ -270,22 +264,6 @@ public class Move : UdonSharpBehaviour
         {
             MakeItWaiting(animGridId, animValue);
         }
-        else if ( animType == 0b1001 )
-        {
-            StartInfiniteLoop(
-                animGridId,
-                animValue,
-                new float[2] {
-                    Tick(50), Tick(80)
-                },
-                new float[2] {
-                    Tick(10), Tick(10)
-                },
-                new float[2] {
-                    Tick(5), Tick(5)
-                } 
-            );
-        }
 
         return 0;
     }
@@ -309,7 +287,7 @@ public class Move : UdonSharpBehaviour
     // 新しいハリネズミをスポーン、スロットに登録
     public void SpawnPiece(int argGridId, int argRotCode, string argColor, float argDuration) {
         // 生産
-        GameObject newPieceObj = Instantiate(AdamPieceObj, HousingComplexTransform);
+        GameObject newPieceObj = Instantiate(AdamPieceObj, _hedgehogsHide[IWorld].transform);
         int result = newPieceObj.GetComponent<Piece>().Initialize(
             argColor,
             _realBoardSize,
@@ -342,6 +320,7 @@ public class Move : UdonSharpBehaviour
             toBeGridId,
             _rotCodes[toBeGridId],
             argDuration,
+            IWorld,
             true
         );
         return toBeGridId;
@@ -349,14 +328,14 @@ public class Move : UdonSharpBehaviour
 
     // 回転
     private void Rotate(int argGridId, int argAnimValue, float argDuration) {
-        Debug.Log(" Rotate Rotate Rotate ");
-        Debug.Log("適用前 RotCode: " + _rotCodes[argGridId].ToString());
+        //Debug.Log(" Rotate Rotate Rotate ");
+        //Debug.Log("適用前 RotCode: " + _rotCodes[argGridId].ToString());
         int toBeRotCode = this.gameObject.GetComponent<Hedgehog>().AlterRotCode(
             _rotCodes[argGridId],
             argAnimValue
         );
         _rotCodes[argGridId] = toBeRotCode;
-        Debug.Log("適用後 RotCode: " + _rotCodes[argGridId].ToString());
+        //Debug.Log("適用後 RotCode: " + _rotCodes[argGridId].ToString());
 
         GameObject newClock = Instantiate(AdamClockObj, _pieceObjsSlot[argGridId].transform);
         newClock.GetComponent<Clock>().Initialize(
@@ -364,6 +343,7 @@ public class Move : UdonSharpBehaviour
             argGridId,
             _rotCodes[argGridId],
             argDuration,
+            IWorld,
             true
         );
     }
@@ -377,62 +357,80 @@ public class Move : UdonSharpBehaviour
 
     }
 
-    private void StartInfiniteLoop(int argGridId, int DeltaRot, float[] argDurations, float[] argMinDurations, float[] diffs) {
+    private bool _letRecursiveGo;
+    private float _recursiveDelay;
+    private int[] _gridIdsR = new int[4];
+    private int[] _deltaRotsR = new int[4];
+    private float[] _durationsR;
+    private float[] _minDurationsR;
+    private float[] _diffsR;
+    private void StartRecursiveLoop(int[] argGridIds, int[] argDeltaRots, float[] argDurations, float[] argMinDurations, float[] argDiffs) 
+    {
         // 無限ループくん
-        Debug.Log("無限ループを始めるよ グリッドID: " + argGridId.ToString());
-        int currentGridId = argGridId;
-        for ( int iLoop = 0; iLoop < 100; iLoop++){
-            for (int i = 0; i < 4; i++) {
-                Debug.Log("今のグリッドID: " + currentGridId.ToString());
-                int nextGridId = MoveForward(currentGridId, argDurations[0]);
-                Rotate(nextGridId, DeltaRot, argDurations[1]);
-                Debug.Log("新しいグリッドID: " + nextGridId.ToString());
-                currentGridId = nextGridId;
-            }
 
-            // ループをだんだん速くする
-            /*
-            for (int i = 0; i < 2; i++) {
-                argDurations[i] = (argDurations[i] < argMinDurations[i]) ? 
-                                 (argDurations[i]) : (argDurations[i] - diffs[i]);
-            }*/
+        _letRecursiveGo = true;
+        //_recursiveDelay = 5.0f;
+
+        _gridIdsR = argGridIds;
+        _deltaRotsR = argDeltaRots;
+
+        _durationsR = argDurations;
+        _minDurationsR = argMinDurations;
+        _diffsR = argDiffs;
+
+        RecursiveLoop();
+    }
+    public void RecursiveLoop()
+    {
+        // 世界線確認してね
+        Debug.Log("いっかいのリカーシブ");
+        if (_letRecursiveGo) {
+            _recursiveDelay = (_durationsR[0] + _durationsR[1] ) * 2 + _durationsR[2];
+            SendCustomEventDelayedSeconds(nameof(RecursiveLoop), _recursiveDelay);
+            //_recursiveDelay += 5.0f;
+        }
+
+
+        // Debug.Log("1ループの遅延: " + _recursiveDelay.ToString());
+
+        int[] currentGridIds = _gridIdsR;
+        // 4回で1週
+        for (int i = 0; i < 4; i++) {
+            // Debug.Log("今のグリッドID: " + currentGridId.ToString());
+            for (int iTonari = 0; iTonari < 4; iTonari++) {
+                if (_gridIdsR[iTonari] > -1) {
+                    int nextGridId = MoveForward(currentGridIds[iTonari], _durationsR[0]);
+                    Rotate(nextGridId, _deltaRotsR[iTonari], _durationsR[1]);
+                    currentGridIds[iTonari] = nextGridId;
+                }
+            }
+            // Debug.Log("新しいグリッドID: " + nextGridId.ToString());
+        }
+
+        // ループをだんだん速くする
+        for (int i = 0; i < 3; i++) {
+            _durationsR[i] = (_durationsR[i] < _minDurationsR[i]) ? 
+                                //(argDurations[i]) : (argDurations[i] - diffs[i]);
+                                (_durationsR[i]) : (float)(_durationsR[i] * 0.8);
         }
     }
 
     public void Demo() {
-        GameObject newPieceObj = Instantiate(AdamPieceObj, HousingComplexTransform);
-        newPieceObj.GetComponent<Piece>().Initialize(
-            "orange",
-            _realBoardSize,
-            _allPositions,
-            0,                       // 右向きの0でテスト
-            1
+        DestroyAllThePieces();
+        InitializeMove(5);
+        SpawnPiece(12, 0, "orange", 0.01f); 
+        StartRecursiveLoop(
+            new int[4] {12, -1, -1, -1},
+            new int[4] {0b0001, -1, -1, -1},
+            new float[3] {Tick(50), Tick(80), Tick(100)},
+            new float[3] {Tick(5), Tick(8), Tick(3)},
+            new float[3] {0.1f, 0.1f, 0.1f}
         );
-
-        GameObject newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 1, 1, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 1, 2, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 6, 2, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 11, 2, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 11, 1, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 12, 1, 0.5f, true);
-
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 13, 1, 0.5f, true);
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 13, 3, 0.5f, true);
-        newClock = Instantiate(AdamClockObj, newPieceObj.transform);
-        newClock.GetComponent<Clock>().Initialize("test", 12, 3, 0.5f, true);
+        /*SpawnPiece(12, 0, "orange", 0.5f); 
+        for(int i = 0; i < 100; i++){
+            Rotate(12,  1, 0.1f);
+            Rotate(12,  0, 0.1f);
+        }*/
     }
 
     private void Demo2()
@@ -474,6 +472,7 @@ public class Move : UdonSharpBehaviour
         }
         if (Input.GetKeyDown(KeyCode.E)) {
             Debug.Log("E");
+            //ClockMan cm1 = new ClockMan();
         }
         if (Input.GetKeyDown(KeyCode.I)) {
             Debug.Log("I");
@@ -483,7 +482,6 @@ public class Move : UdonSharpBehaviour
         }
         if (Input.GetKeyDown(KeyCode.P)) {
             Debug.Log("P");
-            InitializeMove(5);
             Demo();
         }
         if (Input.GetKeyDown(KeyCode.F)) {
@@ -510,23 +508,9 @@ public class Move : UdonSharpBehaviour
         }
         if (Input.GetKeyDown(KeyCode.D)) {
             Debug.Log("D");
-            /*
-            InitializeMove(5);
-
-            SpawnPiece(10, 1, "orange", Tick(1));
-            MoveForward(10, Tick(5));
-            Rotate(11, 3, Tick(3));
-
-            SpawnPiece(15, 1, "blue", Tick(1));
-            MoveForward(15, Tick(5));
-            Rotate(16, 1, Tick(3));
-
-            SpawnPiece(20, 1, "orange", Tick(1));
-            MoveForward(20, Tick(5));
-            Rotate(21, 2, Tick(3));
-            */
         }
     }
+
     public int AssembleSingleAnim(int argGridId, int argAnimOrderType, int argAnimOrderValue)
     {
         int res = 0;
